@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Great Program | Arete</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #ffffff; color: #0f1419; }
+        .app-container { max-width: 1800px; margin: 0 auto; display: flex; min-height: 100vh; }
+        .main-content { flex: 1; border-right: 1px solid #eff3f4; border-left: 1px solid #eff3f4; min-width: 0; }
+        
+        .tag-base { padding: 5px 12px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; margin: 0 8px 8px 0; transition: all 0.2s; border: none; cursor: pointer; }
+        .color-Philosophy { background-color: #F8E8E8; color: #A65D5D; }
+        .color-Historical { background-color: #E8F0F8; color: #5D8AA6; }
+        .color-Thinking { background-color: #F0F4F0; color: #5D7A5D; }
+        .color-Psychology { background-color: #E8F8F0; color: #5DA683; }
+        .color-Communication { background-color: #F0E8F8; color: #835DA6; }
+        .color-Economics { background-color: #F2F2F2; color: #666666; }
+        .color-Sociology { background-color: #F8F0E8; color: #A67D5D; }
+        .color-Biology { background-color: #F0F8F8; color: #5D96A6; }
+        .color-Physics { background-color: #F4F4F4; color: #444444; }
+        .color-Theology { background-color: #F8F8E8; color: #A6A65D; }
+
+        .feed-item { border-bottom: 1px solid #eff3f4; padding: 40px 60px; cursor: pointer; transition: background 0.2s; }
+        .feed-item:hover { background-color: #fcfcfc; }
+        
+        .nav-btn { width: 50px; height: 50px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 20px; transition: all 0.2s; }
+        .nav-btn.active { background-color: #000; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="w-[100px] flex flex-col items-center py-10 sticky top-0 h-screen border-r">
+            <button onclick="showSection('home')" id="nav-home" class="nav-btn active">🏛️</button>
+            <button onclick="showSection('profile')" id="nav-profile" class="nav-btn">👤</button>
+        </header>
+
+        <main class="main-content">
+            <div class="sticky top-0 bg-white/80 backdrop-blur-md z-50 border-b py-8 px-10">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-[900] tracking-[0.3em] uppercase italic cursor-pointer" onclick="location.reload()">Great Program</h1>
+                    <div id="sync-notice" class="text-[10px] font-bold text-blue-500 opacity-0">UPDATING...</div>
+                </div>
+                <input type="text" id="search-input" oninput="handleSearch()" placeholder="SEARCH..." 
+                    class="w-full bg-gray-100 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-black outline-none font-bold">
+            </div>
+
+            <div id="home-section" class="divide-y"></div>
+
+            <div id="profile-section" class="hidden">
+                <div class="p-20 border-b bg-gray-50 text-center">
+                    <h2 class="text-6xl font-[900] tracking-tighter mb-4">Archive</h2>
+                </div>
+                <div class="flex border-b text-sm font-black">
+                    <button onclick="filterProfile('created')" class="flex-1 py-6 hover:bg-gray-100">CREATED</button>
+                    <button onclick="filterProfile('fav')" class="flex-1 py-6 hover:bg-gray-100 border-x">FAVORITES</button>
+                    <button onclick="filterProfile('like')" class="flex-1 py-6 hover:bg-gray-100">LIKES</button>
+                </div>
+                <div id="profile-content" class="divide-y"></div>
+            </div>
+
+            <div id="detail-view" class="hidden p-20">
+                <button onclick="hideDetail()" class="mb-16 text-gray-400 font-black flex items-center hover:text-black">
+                    <span class="mr-4 text-3xl">←</span> BACK
+                </button>
+                <div id="detail-top-tags" class="flex flex-wrap mb-6"></div>
+                <div id="detail-body"></div>
+
+                <div class="flex gap-4 mt-12 mb-20">
+                    <button onclick="incrementAction('likes_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50 active:scale-95 transition-all">
+                        <span class="text-xl">❤️</span> <span id="like-num">0</span> Likes
+                    </button>
+                    <button onclick="incrementAction('favs_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50 active:scale-95 transition-all">
+                        <span class="text-xl">⭐</span> <span id="fav-num">0</span> Favorites
+                    </button>
+                </div>
+
+                <div class="mt-20 pt-16 border-t bg-gray-50/50 p-12 rounded-[50px]">
+                    <h4 class="text-center text-[10px] font-black text-gray-400 tracking-[0.4em] mb-10 uppercase">CONTRIBUTE CATEGORY</h4>
+                    <div id="contribute-tag-pool" class="flex flex-wrap justify-center gap-4"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://gveloqtqysytkibjbnaw.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2ZWxvcXRxeXN5dGtpYmpibmF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNDg0NjksImV4cCI6MjA4NjYyNDQ2OX0.5RNE2PZ4XIGLC18amXtgbPqRchxgIdO4ANv95yDZWM4';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const tagDefs = [
+            { name: 'Philosophy', cls: 'color-Philosophy' },
+            { name: 'Historical', cls: 'color-Historical' },
+            { name: '思维与批判性思考', cls: 'color-Thinking' },
+            { name: '心理学', cls: 'color-Psychology' },
+            { name: '沟通', cls: 'color-Communication' },
+            { name: '经济学', cls: 'color-Economics' },
+            { name: '社会学', cls: 'color-Sociology' },
+            { name: '生物学', cls: 'color-Biology' },
+            { name: '物理与自然科学', cls: 'color-Physics' },
+            { name: '神学与价值观', cls: 'color-Theology' }
+        ];
+
+        let allPrinciples = [];
+        let currentRecord = null;
+        // 个人本地记录（用于标记哪些我点过）
+        let myActions = JSON.parse(localStorage.getItem('my_actions')) || { likes: [], favs: [] };
+
+        async function init() {
+            const { data } = await _supabase.from('principles').select('*').order('created_at', { ascending: false });
+            allPrinciples = data || [];
+            renderList(allPrinciples, 'home-section');
+        }
+
+        function renderList(list, targetId) {
+            const container = document.getElementById(targetId);
+            container.innerHTML = list.map(p => `
+                <div onclick="showDetail('${p.id}')" class="feed-item">
+                    <div class="mb-4">${getTagsHTML(p.category_tag, true)}</div>
+                    <h3 class="text-4xl font-[900] tracking-tight mb-4">${p.title}</h3>
+                    <div class="flex gap-4 text-xs font-black text-gray-300">
+                        <span>❤️ ${p.likes_count || 0}</span>
+                        <span>⭐ ${p.favs_count || 0}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getTagsHTML(tagsStr, isClickable = false) {
+            if (!tagsStr || tagsStr === "NULL") return "";
+            return tagsStr.split(',').filter(t => t.trim() !== "").map(name => {
+                const def = tagDefs.find(d => d.name === name);
+                const click = isClickable ? `onclick="event.stopPropagation(); filterByTag('${name}')"` : "";
+                return `<span ${click} class="tag-base ${def ? def.cls : 'bg-gray-100 text-gray-500'}">${name}</span>`;
+            }).join('');
+        }
+
+        function handleSearch() {
+            const term = document.getElementById('search-input').value.toLowerCase();
+            const filtered = allPrinciples.filter(p => p.title.toLowerCase().includes(term) || p.content.toLowerCase().includes(term));
+            renderList(filtered, 'home-section');
+        }
+
+        function filterByTag(tagName) {
+            document.getElementById('search-input').value = tagName;
+            const filtered = allPrinciples.filter(p => p.category_tag && p.category_tag.includes(tagName));
+            renderList(filtered, 'home-section');
+        }
+
+        function showDetail(id) {
+            currentRecord = allPrinciples.find(x => x.id == id);
+            document.getElementById('home-section').classList.add('hidden');
+            document.getElementById('profile-section').classList.add('hidden');
+            document.getElementById('detail-view').classList.remove('hidden');
+            
+            document.getElementById('like-num').innerText = currentRecord.likes_count || 0;
+            document.getElementById('fav-num').innerText = currentRecord.favs_count || 0;
+            
+            refreshDetailUI(currentRecord.category_tag);
+            document.getElementById('detail-body').innerHTML = `
+                <h1 class="text-7xl font-[900] mb-12 tracking-tighter">${currentRecord.title}</h1>
+                <div class="text-3xl leading-[1.8] text-gray-700 italic border-l-8 pl-16 my-20">${currentRecord.content}</div>
+            `;
+            window.scrollTo(0,0);
+        }
+
+        // 云端点赞/收藏：所有人可见
+        async function incrementAction(field) {
+            const newVal = (currentRecord[field] || 0) + 1;
+            currentRecord[field] = newVal;
+            
+            // 更新 UI
+            if(field === 'likes_count') document.getElementById('like-num').innerText = newVal;
+            if(field === 'favs_count') document.getElementById('fav-num').innerText = newVal;
+            
+            // 存入本地记录（标记我点过了）
+            const type = field === 'likes_count' ? 'likes' : 'favs';
+            if(!myActions[type].includes(currentRecord.id)) myActions[type].push(currentRecord.id);
+            localStorage.setItem('my_actions', JSON.stringify(myActions));
+
+            // 同步到 Supabase 云端
+            const updateObj = {};
+            updateObj[field] = newVal;
+            await _supabase.from('principles').update(updateObj).eq('id', currentRecord.id);
+        }
+
+        function showSection(section) {
+            document.getElementById('home-section').classList.toggle('hidden', section !== 'home');
+            document.getElementById('profile-section').classList.toggle('hidden', section !== 'profile');
+            document.getElementById('detail-view').classList.add('hidden');
+            document.getElementById('nav-home').classList.toggle('active', section === 'home');
+            document.getElementById('nav-profile').classList.toggle('active', section === 'profile');
+            if(section === 'profile') filterProfile('fav');
+        }
+
+        function filterProfile(type) {
+            let list = [];
+            if (type === 'fav') list = allPrinciples.filter(p => myActions.favs.includes(p.id));
+            if (type === 'like') list = allPrinciples.filter(p => myActions.likes.includes(p.id));
+            if (type === 'created') list = allPrinciples.filter(p => p.author === '元');
+            renderList(list, 'profile-content');
+        }
+
+        async function toggleTag(tagName) {
+            let tags = (currentRecord.category_tag || "").split(',').filter(t => t.trim() !== "" && t !== "NULL");
+            tags = tags.includes(tagName) ? tags.filter(t => t !== tagName) : [...tags, tagName];
+            const newStr = tags.join(',');
+            currentRecord.category_tag = newStr;
+            refreshDetailUI(newStr);
+            await _supabase.from('principles').update({ category_tag: newStr }).eq('id', currentRecord.id);
+        }
+
+        function refreshDetailUI(tagsStr) {
+            document.getElementById('detail-top-tags').innerHTML = getTagsHTML(tagsStr);
+            const activeTags = (tagsStr || "").split(',').filter(t => t.trim() !== "" && t !== "NULL");
+            document.getElementById('contribute-tag-pool').innerHTML = tagDefs.map(def => {
+                const isActive = activeTags.includes(def.name);
+                return `<button onclick="toggleTag('${def.name}')" class="tag-base ${def.cls} ${isActive ? 'outline outline-3 outline-black' : 'opacity-40'}">${def.name}</button>`;
+            }).join('');
+        }
+
+        function hideDetail() {
+            showSection('home');
+            init(); // 刷新数据以显示最新点赞数
+        }
+
+        init();
+    </script>
+</body>
+</html>
