@@ -11,6 +11,7 @@
         .app-container { max-width: 1800px; margin: 0 auto; display: flex; min-height: 100vh; }
         .main-content { flex: 1; border-right: 1px solid #eff3f4; border-left: 1px solid #eff3f4; min-width: 0; }
         
+        /* 标签样式 */
         .tag-base { padding: 5px 12px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; margin: 0 8px 8px 0; transition: all 0.2s; border: none; cursor: pointer; }
         .color-Philosophy { background-color: #F8E8E8; color: #A65D5D; }
         .color-Historical { background-color: #E8F0F8; color: #5D8AA6; }
@@ -27,6 +28,7 @@
         .feed-item:hover { background-color: #fcfcfc; }
         
         .nav-btn { width: 50px; height: 50px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 20px; transition: all 0.2s; }
+        .nav-btn:hover { background-color: #f3f4f6; }
         .nav-btn.active { background-color: #000; color: #fff; }
     </style>
 </head>
@@ -42,13 +44,23 @@
             <div class="sticky top-0 bg-white/80 backdrop-blur-md z-50 border-b py-8 px-10">
                 <div class="flex justify-between items-center mb-6">
                     <h1 class="text-2xl font-[900] tracking-[0.3em] uppercase italic cursor-pointer" onclick="location.reload()">Great Program</h1>
-                    <div id="sync-notice" class="text-[10px] font-bold text-blue-500 opacity-0">UPDATING...</div>
+                    <div id="sync-notice" class="text-[10px] font-bold text-blue-500 opacity-0">SYNCING...</div>
                 </div>
                 <input type="text" id="search-input" oninput="handleSearch()" placeholder="SEARCH..." 
                     class="w-full bg-gray-100 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-black outline-none font-bold">
             </div>
 
-            <div id="home-section" class="divide-y"></div>
+            <div id="home-section">
+                <div class="p-10 border-b bg-white">
+                    <input type="text" id="new-title" placeholder="原则标题..." class="w-full text-2xl font-bold mb-4 outline-none">
+                    <textarea id="new-content" placeholder="输入你的原则内容..." class="w-full text-lg outline-none min-h-[100px] resize-none"></textarea>
+                    <div class="flex justify-between items-center mt-4">
+                        <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Publish new principle</div>
+                        <button onclick="publishPrinciple()" class="bg-black text-white px-8 py-3 rounded-full font-black hover:opacity-80 transition-opacity">POST</button>
+                    </div>
+                </div>
+                <div id="feed-container" class="divide-y"></div>
+            </div>
 
             <div id="profile-section" class="hidden">
                 <div class="p-20 border-b bg-gray-50 text-center">
@@ -68,16 +80,14 @@
                 </button>
                 <div id="detail-top-tags" class="flex flex-wrap mb-6"></div>
                 <div id="detail-body"></div>
-
                 <div class="flex gap-4 mt-12 mb-20">
-                    <button onclick="incrementAction('likes_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50 active:scale-95 transition-all">
+                    <button onclick="incrementAction('likes_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50">
                         <span class="text-xl">❤️</span> <span id="like-num">0</span> Likes
                     </button>
-                    <button onclick="incrementAction('favs_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50 active:scale-95 transition-all">
+                    <button onclick="incrementAction('favs_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50">
                         <span class="text-xl">⭐</span> <span id="fav-num">0</span> Favorites
                     </button>
                 </div>
-
                 <div class="mt-20 pt-16 border-t bg-gray-50/50 p-12 rounded-[50px]">
                     <h4 class="text-center text-[10px] font-black text-gray-400 tracking-[0.4em] mb-10 uppercase">CONTRIBUTE CATEGORY</h4>
                     <div id="contribute-tag-pool" class="flex flex-wrap justify-center gap-4"></div>
@@ -107,13 +117,30 @@
 
         let allPrinciples = [];
         let currentRecord = null;
-        // 个人本地记录（用于标记哪些我点过）
         let myActions = JSON.parse(localStorage.getItem('my_actions')) || { likes: [], favs: [] };
 
         async function init() {
             const { data } = await _supabase.from('principles').select('*').order('created_at', { ascending: false });
             allPrinciples = data || [];
-            renderList(allPrinciples, 'home-section');
+            renderList(allPrinciples, 'feed-container');
+        }
+
+        // 发布新原则逻辑
+        async function publishPrinciple() {
+            const title = document.getElementById('new-title').value;
+            const content = document.getElementById('new-content').value;
+            if(!title || !content) return alert("请填写完整内容");
+
+            const { data, error } = await _supabase.from('principles').insert([
+                { title: title, content: content, author: '元', likes_count: 0, favs_count: 0 }
+            ]).select();
+
+            if(error) alert("保存失败: " + error.message);
+            else {
+                document.getElementById('new-title').value = '';
+                document.getElementById('new-content').value = '';
+                init(); // 刷新列表
+            }
         }
 
         function renderList(list, targetId) {
@@ -142,13 +169,13 @@
         function handleSearch() {
             const term = document.getElementById('search-input').value.toLowerCase();
             const filtered = allPrinciples.filter(p => p.title.toLowerCase().includes(term) || p.content.toLowerCase().includes(term));
-            renderList(filtered, 'home-section');
+            renderList(filtered, 'feed-container');
         }
 
         function filterByTag(tagName) {
             document.getElementById('search-input').value = tagName;
             const filtered = allPrinciples.filter(p => p.category_tag && p.category_tag.includes(tagName));
-            renderList(filtered, 'home-section');
+            renderList(filtered, 'feed-container');
         }
 
         function showDetail(id) {
@@ -156,10 +183,8 @@
             document.getElementById('home-section').classList.add('hidden');
             document.getElementById('profile-section').classList.add('hidden');
             document.getElementById('detail-view').classList.remove('hidden');
-            
             document.getElementById('like-num').innerText = currentRecord.likes_count || 0;
             document.getElementById('fav-num').innerText = currentRecord.favs_count || 0;
-            
             refreshDetailUI(currentRecord.category_tag);
             document.getElementById('detail-body').innerHTML = `
                 <h1 class="text-7xl font-[900] mb-12 tracking-tighter">${currentRecord.title}</h1>
@@ -168,24 +193,15 @@
             window.scrollTo(0,0);
         }
 
-        // 云端点赞/收藏：所有人可见
         async function incrementAction(field) {
             const newVal = (currentRecord[field] || 0) + 1;
             currentRecord[field] = newVal;
-            
-            // 更新 UI
             if(field === 'likes_count') document.getElementById('like-num').innerText = newVal;
             if(field === 'favs_count') document.getElementById('fav-num').innerText = newVal;
-            
-            // 存入本地记录（标记我点过了）
             const type = field === 'likes_count' ? 'likes' : 'favs';
             if(!myActions[type].includes(currentRecord.id)) myActions[type].push(currentRecord.id);
             localStorage.setItem('my_actions', JSON.stringify(myActions));
-
-            // 同步到 Supabase 云端
-            const updateObj = {};
-            updateObj[field] = newVal;
-            await _supabase.from('principles').update(updateObj).eq('id', currentRecord.id);
+            await _supabase.from('principles').update({ [field]: newVal }).eq('id', currentRecord.id);
         }
 
         function showSection(section) {
@@ -225,7 +241,7 @@
 
         function hideDetail() {
             showSection('home');
-            init(); // 刷新数据以显示最新点赞数
+            init();
         }
 
         init();
