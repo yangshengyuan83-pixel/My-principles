@@ -1,250 +1,755 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Great Program | Arete</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #ffffff; color: #0f1419; }
-        .app-container { max-width: 1800px; margin: 0 auto; display: flex; min-height: 100vh; }
-        .main-content { flex: 1; border-right: 1px solid #eff3f4; border-left: 1px solid #eff3f4; min-width: 0; }
-        
-        /* 标签样式 */
-        .tag-base { padding: 5px 12px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; margin: 0 8px 8px 0; transition: all 0.2s; border: none; cursor: pointer; }
-        .color-Philosophy { background-color: #F8E8E8; color: #A65D5D; }
-        .color-Historical { background-color: #E8F0F8; color: #5D8AA6; }
-        .color-Thinking { background-color: #F0F4F0; color: #5D7A5D; }
-        .color-Psychology { background-color: #E8F8F0; color: #5DA683; }
-        .color-Communication { background-color: #F0E8F8; color: #835DA6; }
-        .color-Economics { background-color: #F2F2F2; color: #666666; }
-        .color-Sociology { background-color: #F8F0E8; color: #A67D5D; }
-        .color-Biology { background-color: #F0F8F8; color: #5D96A6; }
-        .color-Physics { background-color: #F4F4F4; color: #444444; }
-        .color-Theology { background-color: #F8F8E8; color: #A6A65D; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Great Program | 智慧双翼</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+body { font-family: 'Inter', sans-serif; background: #fff; color: #37352f; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+.sidebar-scroll { height: calc(100vh - 100px); overflow-y: auto; scrollbar-width: none; }
+.sidebar-scroll::-webkit-scrollbar { display: none; }
+.tag-grid { display: flex; flex-direction: column; gap: 6px; }
+.sidebar-tag { font-size: 10px; transition: all 0.2s; cursor: pointer; border-radius: 6px; padding: 6px 10px; border: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.sidebar-tag span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-tag.inactive { background-color: #f9f9f9; color: #9ca3af; }
+.sidebar-tag.active { background-color: #000 !important; color: #fff !important; }
+.tag-num { font-family: 'Inter', monospace; font-size: 9px; opacity: 0.4; flex-shrink: 0; }
 
-        .feed-item { border-bottom: 1px solid #eff3f4; padding: 40px 60px; cursor: pointer; transition: background 0.2s; }
-        .feed-item:hover { background-color: #fcfcfc; }
-        
-        .nav-btn { width: 50px; height: 50px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 20px; transition: all 0.2s; }
-        .nav-btn:hover { background-color: #f3f4f6; }
-        .nav-btn.active { background-color: #000; color: #fff; }
-    </style>
+/* 右侧列表区域滑动条样式 */
+.wisdom-column { max-height: 22vh; overflow-y: auto; padding-right: 8px; margin-bottom: 20px; }
+.wisdom-column::-webkit-scrollbar { width: 2px; }
+.wisdom-column::-webkit-scrollbar-thumb { background: #eee; }
+.wisdom-item { border-left: 2px solid #eee; padding: 8px 12px; margin-bottom: 8px; transition: all 0.2s; cursor: pointer; }
+.wisdom-item:hover { border-left-color: currentColor; background: #fcfcfc; }
+
+/* 任务清单样式 */
+.task-item { font-size: 11px; display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #f9f9f9; cursor: pointer; color: #6b7280; transition: all 0.2s; }
+.task-item:hover { color: #000; }
+.task-item.done { text-decoration: line-through; color: #d1d5db; }
+.task-checkbox { width: 12px; height: 12px; border: 1px solid #d1d5db; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8px; flex-shrink: 0; margin-top: 2px; }
+.task-item.done .task-checkbox { background: #000; border-color: #000; color: #fff; }
+
+.main-content { flex: 1; height: 100vh; overflow-y: auto; position: relative; scrollbar-width: none; }
+.main-content::-webkit-scrollbar { display: none; }
+.arena-stat-card { background: #000; color: #fff; padding: 15px 30px; border-radius: 0 0 30px 30px; display: flex; justify-content: space-between; position: sticky; top: 0; z-index: 40; }
+
+/* Notion Toggle Style Animation */
+.toggle-block { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; overflow: hidden; }
+
+/* Toggle Switch (开关) */
+.switch-container { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.switch-bg { width: 24px; height: 12px; background: #e5e7eb; border-radius: 12px; position: relative; transition: background 0.3s; }
+.switch-dot { width: 10px; height: 10px; background: white; border-radius: 50%; position: absolute; top: 1px; left: 1px; transition: transform 0.3s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.switch-input:checked + .switch-bg { background: #000; }
+.switch-input:checked + .switch-bg .switch-dot { transform: translateX(12px); }
+</style>
 </head>
-<body>
+<body class="flex">
+<nav class="w-64 border-r border-gray-50 flex flex-col p-5 h-screen bg-white flex-shrink-0 relative z-[100]">
+  <div class="mb-8 flex items-center gap-2">
+    <div class="w-7 h-7 bg-black rounded flex items-center justify-center text-white font-black text-[10px]">GP</div>
+    <span class="font-black tracking-tighter text-sm italic">每日读经</span>
+  </div>
 
-    <div class="app-container">
-        <header class="w-[100px] flex flex-col items-center py-10 sticky top-0 h-screen border-r">
-            <button onclick="showSection('home')" id="nav-home" class="nav-btn active">🏛️</button>
-            <button onclick="showSection('profile')" id="nav-profile" class="nav-btn">👤</button>
-        </header>
-
-        <main class="main-content">
-            <div class="sticky top-0 bg-white/80 backdrop-blur-md z-50 border-b py-8 px-10">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-2xl font-[900] tracking-[0.3em] uppercase italic cursor-pointer" onclick="location.reload()">Great Program</h1>
-                    <div id="sync-notice" class="text-[10px] font-bold text-blue-500 opacity-0">SYNCING...</div>
-                </div>
-                <input type="text" id="search-input" oninput="handleSearch()" placeholder="SEARCH..." 
-                    class="w-full bg-gray-100 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-black outline-none font-bold">
-            </div>
-
-            <div id="home-section">
-                <div class="p-10 border-b bg-white">
-                    <input type="text" id="new-title" placeholder="原则标题..." class="w-full text-2xl font-bold mb-4 outline-none">
-                    <textarea id="new-content" placeholder="输入你的原则内容..." class="w-full text-lg outline-none min-h-[100px] resize-none"></textarea>
-                    <div class="flex justify-between items-center mt-4">
-                        <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Publish new principle</div>
-                        <button onclick="publishPrinciple()" class="bg-black text-white px-8 py-3 rounded-full font-black hover:opacity-80 transition-opacity">POST</button>
-                    </div>
-                </div>
-                <div id="feed-container" class="divide-y"></div>
-            </div>
-
-            <div id="profile-section" class="hidden">
-                <div class="p-20 border-b bg-gray-50 text-center">
-                    <h2 class="text-6xl font-[900] tracking-tighter mb-4">Archive</h2>
-                </div>
-                <div class="flex border-b text-sm font-black">
-                    <button onclick="filterProfile('created')" class="flex-1 py-6 hover:bg-gray-100">CREATED</button>
-                    <button onclick="filterProfile('fav')" class="flex-1 py-6 hover:bg-gray-100 border-x">FAVORITES</button>
-                    <button onclick="filterProfile('like')" class="flex-1 py-6 hover:bg-gray-100">LIKES</button>
-                </div>
-                <div id="profile-content" class="divide-y"></div>
-            </div>
-
-            <div id="detail-view" class="hidden p-20">
-                <button onclick="hideDetail()" class="mb-16 text-gray-400 font-black flex items-center hover:text-black">
-                    <span class="mr-4 text-3xl">←</span> BACK
-                </button>
-                <div id="detail-top-tags" class="flex flex-wrap mb-6"></div>
-                <div id="detail-body"></div>
-                <div class="flex gap-4 mt-12 mb-20">
-                    <button onclick="incrementAction('likes_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50">
-                        <span class="text-xl">❤️</span> <span id="like-num">0</span> Likes
-                    </button>
-                    <button onclick="incrementAction('favs_count')" class="flex items-center gap-3 border-2 border-gray-100 px-8 py-3 rounded-full font-bold hover:bg-gray-50">
-                        <span class="text-xl">⭐</span> <span id="fav-num">0</span> Favorites
-                    </button>
-                </div>
-                <div class="mt-20 pt-16 border-t bg-gray-50/50 p-12 rounded-[50px]">
-                    <h4 class="text-center text-[10px] font-black text-gray-400 tracking-[0.4em] mb-10 uppercase">CONTRIBUTE CATEGORY</h4>
-                    <div id="contribute-tag-pool" class="flex flex-wrap justify-center gap-4"></div>
-                </div>
-            </div>
-        </main>
+  <div class="sidebar-scroll space-y-8">
+    <div class="relative">
+      <h3 class="text-[9px] font-black text-gray-300 tracking-widest mb-3 uppercase">智能寻问</h3>
+      <div class="relative">
+        <input id="smart-search-input" onkeydown="handleSearchKey(event)" oninput="debounceSearch(event)" placeholder="输入问题或关键字回车..." class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium placeholder-gray-400">
+        <span class="absolute right-3 top-2.5 text-gray-400 opacity-50 text-sm">🔍</span>
+      </div>
+      
+      <div id="smart-search-results" class="absolute top-full mt-2 left-0 w-[320px] bg-white border border-gray-100 shadow-2xl rounded-2xl hidden max-h-[60vh] overflow-y-auto z-[200] flex-col">
+      </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const SUPABASE_URL = 'https://gveloqtqysytkibjbnaw.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2ZWxvcXRxeXN5dGtpYmpibmF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNDg0NjksImV4cCI6MjA4NjYyNDQ2OX0.5RNE2PZ4XIGLC18amXtgbPqRchxgIdO4ANv95yDZWM4';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <div class="border-t border-gray-50 pt-6">
+      <h3 class="text-[9px] font-black text-gray-300 tracking-widest mb-3 uppercase flex justify-between">
+        <span>任务清单 / 灵感</span>
+      </h3>
+      <div id="todo-list" class="space-y-1 mb-3"></div>
+      <input id="todo-input" onkeydown="handleTodoKey(event)" placeholder="+ 记录灵光一现... (回车保存)" class="w-full bg-transparent text-[11px] border-b border-gray-100 pb-2 outline-none text-gray-600 focus:border-black transition-colors">
+    </div>
 
-        const tagDefs = [
-            { name: 'Philosophy', cls: 'color-Philosophy' },
-            { name: 'Historical', cls: 'color-Historical' },
-            { name: '思维与批判性思考', cls: 'color-Thinking' },
-            { name: '心理学', cls: 'color-Psychology' },
-            { name: '沟通', cls: 'color-Communication' },
-            { name: '经济学', cls: 'color-Economics' },
-            { name: '社会学', cls: 'color-Sociology' },
-            { name: '生物学', cls: 'color-Biology' },
-            { name: '物理与自然科学', cls: 'color-Physics' },
-            { name: '神学与价值观', cls: 'color-Theology' }
-        ];
+    <div class="border-t border-gray-50 pt-6">
+      <h3 class="text-[9px] font-black text-gray-300 tracking-widest mb-4 uppercase">热门标签</h3>
+      <div id="dynamic-tags-grid" class="tag-grid"></div>
+    </div>
+  </div>
+</nav>
 
-        let allPrinciples = [];
-        let currentRecord = null;
-        let myActions = JSON.parse(localStorage.getItem('my_actions')) || { likes: [], favs: [] };
+<main class="main-content border-r border-gray-50 z-10">
+  <div class="arena-stat-card mx-6">
+    <div class="text-center"><div id="stat-date" class="text-lg font-black tracking-tighter">-- / --</div><div class="text-[7px] font-bold text-gray-500 uppercase">Season</div></div>
+    <div class="flex-1 px-10 flex flex-col justify-center items-center">
+        <span class="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">CURRENT VIEW</span>
+        <div id="current-view-indicator" class="text-[11px] font-bold uppercase italic tracking-tighter text-gray-200">ALL FLOW</div>
+    </div>
+    <div class="text-center"><div id="total-principles" class="text-lg font-black tracking-tighter">0</div><div class="text-[7px] font-bold text-gray-500 uppercase">Principles</div></div>
+  </div>
+  
+  <section class="max-w-2xl mx-auto py-12 px-6">
+    <div id="publisher-block" class="p-8 border border-gray-100 rounded-[30px] bg-white shadow-sm transition-all duration-300">
+      <input id="new-title" placeholder="今日话语 (总结或提问)" value="" class="w-full bg-transparent outline-none text-4xl font-black tracking-tighter mb-8 text-black placeholder-gray-300">
+      <div class="mb-8">
+        <textarea id="new-verse" oninput="autoFillSource()" placeholder="在此处输入经文原文..." class="w-full bg-transparent outline-none text-base min-h-[160px] resize-none"></textarea>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex-1">
+          <input id="new-source" placeholder="经文出处 (如: 箴言 4:23)" class="w-full bg-gray-50 text-[15px] font-medium px-5 py-4 rounded-3xl outline-none">
+        </div>
+        <button id="commit-btn" onclick="startPublishFlow()" class="bg-black text-white px-10 py-4 rounded-3xl text-sm font-black uppercase tracking-widest hover:scale-105 transition-all">COMMIT</button>
+      </div>
+    </div>
 
-        async function init() {
-            const { data } = await _supabase.from('principles').select('*').order('created_at', { ascending: false });
-            allPrinciples = data || [];
-            renderList(allPrinciples, 'feed-container');
-        }
+    <div class="mt-8 flex justify-between items-end hidden" id="search-result-header">
+        <h2 class="text-2xl font-black italic tracking-tighter">检索结果</h2>
+        <button onclick="clearSearch()" class="text-xs font-black text-gray-400 hover:text-black uppercase">✕ 清除搜索</button>
+    </div>
+    <div id="feed-container" class="space-y-12 pb-32 mt-8"></div>
+  </section>
+</main>
 
-        // 发布新原则逻辑
-        async function publishPrinciple() {
-            const title = document.getElementById('new-title').value;
-            const content = document.getElementById('new-content').value;
-            if(!title || !content) return alert("请填写完整内容");
+<aside class="w-72 flex flex-col p-6 h-screen bg-gray-50/30 flex-shrink-0 z-10">
+  <div class="mb-8"><h2 class="text-xl font-black italic tracking-tighter">个人智慧中心</h2></div>
+  <div class="flex-1 overflow-y-auto sidebar-scroll pr-1">
+    
+    <div class="mb-8">
+      <div class="flex justify-between items-end border-b border-purple-500 pb-2 mb-3 text-purple-600">
+        <h3 class="text-[9px] font-black uppercase">我的寻问与认可</h3>
+        <label class="switch-container group" title="切换公开/私密模式">
+            <input type="checkbox" id="privacy-toggle" class="switch-input hidden" checked>
+            <div class="switch-bg group-hover:opacity-80"><div class="switch-dot"></div></div>
+            <span class="text-[8px] font-black text-gray-400 uppercase ml-1" id="privacy-label">私密</span>
+        </label>
+      </div>
+      <div id="my-inquiries-list" class="wisdom-column text-purple-600"></div>
+    </div>
 
-            const { data, error } = await _supabase.from('principles').insert([
-                { title: title, content: content, author: '元', likes_count: 0, favs_count: 0 }
-            ]).select();
+    <div class="mb-8"><div class="flex justify-between items-end border-b border-black pb-1 mb-3"><h3 class="text-[9px] font-black uppercase">I Created</h3><span id="count-created" class="text-xl font-black italic">0</span></div><div id="my-principles-list" class="wisdom-column text-black"></div></div>
+    <div class="mb-8"><div class="flex justify-between items-end border-b border-blue-500 pb-1 mb-3 text-blue-500"><h3 class="text-[9px] font-black uppercase">I Liked</h3><span id="count-liked" class="text-xl font-black italic">0</span></div><div id="my-likes-list" class="wisdom-column text-blue-500"></div></div>
+    <div class="mb-8"><div class="flex justify-between items-end border-b border-amber-500 pb-1 mb-3 text-amber-500"><h3 class="text-[9px] font-black uppercase">I Collected</h3><span id="count-collected" class="text-xl font-black italic">0</span></div><div id="my-collect-list" class="wisdom-column text-amber-500"></div></div>
+  </div>
+</aside>
 
-            if(error) alert("保存失败: " + error.message);
-            else {
-                document.getElementById('new-title').value = '';
-                document.getElementById('new-content').value = '';
-                init(); // 刷新列表
-            }
-        }
+<div id="detail-view" class="fixed inset-0 bg-white z-[300] hidden overflow-y-auto">
+  <div class="max-w-3xl mx-auto py-20 px-10 relative">
+    <button onclick="backToHome()" class="fixed top-10 left-10 text-gray-400 font-black text-xs uppercase hover:text-black transition-colors">✕ CLOSE</button>
 
-        function renderList(list, targetId) {
-            const container = document.getElementById(targetId);
-            container.innerHTML = list.map(p => `
-                <div onclick="showDetail('${p.id}')" class="feed-item">
-                    <div class="mb-4">${getTagsHTML(p.category_tag, true)}</div>
-                    <h3 class="text-4xl font-[900] tracking-tight mb-4">${p.title}</h3>
-                    <div class="flex gap-4 text-xs font-black text-gray-300">
-                        <span>❤️ ${p.likes_count || 0}</span>
-                        <span>⭐ ${p.favs_count || 0}</span>
-                    </div>
-                </div>
-            `).join('');
-        }
+    <div id="detail-tags" class="flex flex-wrap gap-2 mb-6"></div>
+    <h1 id="detail-title" class="text-5xl font-black tracking-tighter mb-8 leading-tight"></h1>
 
-        function getTagsHTML(tagsStr, isClickable = false) {
-            if (!tagsStr || tagsStr === "NULL") return "";
-            return tagsStr.split(',').filter(t => t.trim() !== "").map(name => {
-                const def = tagDefs.find(d => d.name === name);
-                const click = isClickable ? `onclick="event.stopPropagation(); filterByTag('${name}')"` : "";
-                return `<span ${click} class="tag-base ${def ? def.cls : 'bg-gray-100 text-gray-500'}">${name}</span>`;
-            }).join('');
-        }
+    <div id="detail-content" class="text-xl text-gray-700 italic border-l-4 border-gray-100 pl-8 mb-16 font-light leading-relaxed"></div>
 
-        function handleSearch() {
-            const term = document.getElementById('search-input').value.toLowerCase();
-            const filtered = allPrinciples.filter(p => p.title.toLowerCase().includes(term) || p.content.toLowerCase().includes(term));
-            renderList(filtered, 'feed-container');
-        }
+    <div class="bg-gray-50 p-8 rounded-[30px] border border-gray-100 mb-16">
+      <h3 class="font-black text-[9px] uppercase mb-6 tracking-widest text-gray-400">经文理解</h3>
+      <div id="discourse-list" class="space-y-6 mb-8"></div>
+      <textarea id="explanation-input" placeholder="点击编辑" class="w-full bg-transparent outline-none min-h-[88px] text-base text-gray-800 resize-none"></textarea>
+      <div class="flex justify-between items-center mt-4">
+        <span class="text-[8px] font-black text-gray-300 uppercase italic">Posting as "元"</span>
+        <button onclick="uploadExplanation()" class="bg-black text-white px-8 py-2.5 rounded-full text-[10px] font-black uppercase hover:scale-105 transition-all">上传理解</button>
+      </div>
+    </div>
 
-        function filterByTag(tagName) {
-            document.getElementById('search-input').value = tagName;
-            const filtered = allPrinciples.filter(p => p.category_tag && p.category_tag.includes(tagName));
-            renderList(filtered, 'feed-container');
-        }
+    <div class="bg-gray-50 p-8 rounded-[30px] border border-gray-100">
+      <h3 class="font-black text-[9px] uppercase mb-6 tracking-widest text-gray-400">实践分享</h3>
+      <div id="instance-list" class="space-y-6 mb-8"></div>
+      <textarea id="instance-input" placeholder="点击编辑" class="w-full bg-transparent outline-none min-h-[88px] text-base text-gray-800 resize-none"></textarea>
+      <div class="flex justify-between items-center mt-4">
+        <span class="text-[8px] font-black text-gray-300 uppercase italic">Posting as "元"</span>
+        <button onclick="postInstance()" class="bg-black text-white px-8 py-2.5 rounded-full text-[10px] font-black uppercase hover:scale-105 transition-all">上传实践分享</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-        function showDetail(id) {
-            currentRecord = allPrinciples.find(x => x.id == id);
-            document.getElementById('home-section').classList.add('hidden');
-            document.getElementById('profile-section').classList.add('hidden');
-            document.getElementById('detail-view').classList.remove('hidden');
-            document.getElementById('like-num').innerText = currentRecord.likes_count || 0;
-            document.getElementById('fav-num').innerText = currentRecord.favs_count || 0;
-            refreshDetailUI(currentRecord.category_tag);
-            document.getElementById('detail-body').innerHTML = `
-                <h1 class="text-7xl font-[900] mb-12 tracking-tighter">${currentRecord.title}</h1>
-                <div class="text-3xl leading-[1.8] text-gray-700 italic border-l-8 pl-16 my-20">${currentRecord.content}</div>
-            `;
-            window.scrollTo(0,0);
-        }
+<div id="tag-picker-overlay" class="fixed inset-0 bg-white z-[400] hidden flex items-center justify-center p-6 text-center transition-opacity">
+  <div class="max-w-2xl w-full" id="picker-step-content"></div>
+</div>
 
-        async function incrementAction(field) {
-            const newVal = (currentRecord[field] || 0) + 1;
-            currentRecord[field] = newVal;
-            if(field === 'likes_count') document.getElementById('like-num').innerText = newVal;
-            if(field === 'favs_count') document.getElementById('fav-num').innerText = newVal;
-            const type = field === 'likes_count' ? 'likes' : 'favs';
-            if(!myActions[type].includes(currentRecord.id)) myActions[type].push(currentRecord.id);
-            localStorage.setItem('my_actions', JSON.stringify(myActions));
-            await _supabase.from('principles').update({ [field]: newVal }).eq('id', currentRecord.id);
-        }
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ==========================================
+// 基础配置与变量
+// ==========================================
+const SUPABASE_URL = 'https://gveloqtqysytkibjbnaw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2ZWxvcXRxeXN5dGtpYmpibmF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNDg0NjksImV4cCI6MjA4NjYyNDQ2OX0.5RNE2PZ4XIGLC18amXtgbPqRchxgIdO4ANv95yDZWM4';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        function showSection(section) {
-            document.getElementById('home-section').classList.toggle('hidden', section !== 'home');
-            document.getElementById('profile-section').classList.toggle('hidden', section !== 'profile');
-            document.getElementById('detail-view').classList.add('hidden');
-            document.getElementById('nav-home').classList.toggle('active', section === 'home');
-            document.getElementById('nav-profile').classList.toggle('active', section === 'profile');
-            if(section === 'profile') filterProfile('fav');
-        }
+let allPrinciples = [];
+let activeFilters = [];
+let currentPrinciple = null;
+let tempPostData = {};
+let tempSelectedTags = [];
+let currentSearchQuery = null; // 记录当前的大屏搜索词
 
-        function filterProfile(type) {
-            let list = [];
-            if (type === 'fav') list = allPrinciples.filter(p => myActions.favs.includes(p.id));
-            if (type === 'like') list = allPrinciples.filter(p => myActions.likes.includes(p.id));
-            if (type === 'created') list = allPrinciples.filter(p => p.author === '元');
-            renderList(list, 'profile-content');
-        }
+// ==========================================
+// 核心增强1: 智能问答系统 (回车触发大屏 + 认可闭环)
+// ==========================================
+let searchTimeout;
 
-        async function toggleTag(tagName) {
-            let tags = (currentRecord.category_tag || "").split(',').filter(t => t.trim() !== "" && t !== "NULL");
-            tags = tags.includes(tagName) ? tags.filter(t => t !== tagName) : [...tags, tagName];
-            const newStr = tags.join(',');
-            currentRecord.category_tag = newStr;
-            refreshDetailUI(newStr);
-            await _supabase.from('principles').update({ category_tag: newStr }).eq('id', currentRecord.id);
-        }
+// 监听输入，控制下拉框
+function debounceSearch(e) {
+  clearTimeout(searchTimeout);
+  const query = e.target.value.trim();
+  const resultsContainer = document.getElementById('smart-search-results');
+  
+  if (!query) {
+    resultsContainer.classList.add('hidden');
+    return;
+  }
+  searchTimeout = setTimeout(() => executeSmartSearchDropdown(query), 300);
+}
 
-        function refreshDetailUI(tagsStr) {
-            document.getElementById('detail-top-tags').innerHTML = getTagsHTML(tagsStr);
-            const activeTags = (tagsStr || "").split(',').filter(t => t.trim() !== "" && t !== "NULL");
-            document.getElementById('contribute-tag-pool').innerHTML = tagDefs.map(def => {
-                const isActive = activeTags.includes(def.name);
-                return `<button onclick="toggleTag('${def.name}')" class="tag-base ${def.cls} ${isActive ? 'outline outline-3 outline-black' : 'opacity-40'}">${def.name}</button>`;
-            }).join('');
-        }
+// 监听回车，将结果推送到主视口
+function handleSearchKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const query = e.target.value.trim();
+    if (query) {
+      document.getElementById('smart-search-results').classList.add('hidden'); // 关掉下拉
+      executeMainSearch(query); // 执行主视图搜索
+    }
+  }
+}
 
-        function hideDetail() {
-            showSection('home');
-            init();
-        }
+// 下拉框渲染逻辑 (原有)
+function executeSmartSearchDropdown(query) {
+  const resultsContainer = document.getElementById('smart-search-results');
+  resultsContainer.classList.remove('hidden');
+  resultsContainer.innerHTML = `<div class="p-5 text-xs text-gray-400 italic text-center animate-pulse">正在向量库中检索...</div>`;
 
-        init();
-    </script>
+  const results = simulateVectorSearch(query);
+
+  if (results.length === 0) {
+    resultsContainer.innerHTML = `
+      <div class="p-6 text-center">
+        <p class="text-xs text-gray-500 mb-4 font-medium">目前的知识库中还没有相关启示。</p>
+        <button onclick="document.getElementById('new-title').focus(); document.getElementById('smart-search-results').classList.add('hidden');" class="bg-black text-white px-5 py-2.5 rounded-full text-[10px] font-black uppercase hover:bg-gray-800 transition-colors">在此发起一次共创 ✍️</button>
+      </div>
+    `;
+    return;
+  }
+
+  resultsContainer.innerHTML = results.map(r => `
+    <div class="border-b border-gray-50 last:border-0 p-4 hover:bg-gray-50 transition-colors group">
+      <div class="cursor-pointer font-black text-sm text-gray-900 flex justify-between items-start gap-3" onclick="toggleResultBlock('${r.id}')">
+        <span class="leading-tight flex-1">${r.title || '无标题'}</span>
+        <span id="icon-${r.id}" class="text-[10px] text-gray-300 transition-transform duration-300 mt-1 flex-shrink-0 group-hover:text-black">▼</span>
+      </div>
+      
+      <div id="block-${r.id}" class="hidden mt-3 pl-3 border-l-2 border-black/10 toggle-block">
+        <div class="text-xs text-gray-600 mb-3 italic leading-relaxed line-clamp-3">"${r.content}"</div>
+        <button onclick="showDetail('${r.id}'); document.getElementById('smart-search-results').classList.add('hidden');" class="text-black bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest transition-colors w-full text-left">📖 进入经文与实践详情 →</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 主视图渲染逻辑 (新增闭环)
+function executeMainSearch(query) {
+  currentSearchQuery = query;
+  document.getElementById('current-view-indicator').innerText = `SEARCH: ${query}`;
+  document.getElementById('publisher-block').classList.add('hidden'); // 隐藏发布器让视觉聚焦
+  document.getElementById('search-result-header').classList.remove('hidden');
+
+  const results = simulateVectorSearch(query);
+  renderFeed(results, query);
+}
+
+function clearSearch() {
+  currentSearchQuery = null;
+  document.getElementById('smart-search-input').value = '';
+  document.getElementById('current-view-indicator').innerText = "ALL FLOW";
+  document.getElementById('publisher-block').classList.remove('hidden');
+  document.getElementById('search-result-header').classList.add('hidden');
+  applyFilters(); // 恢复列表
+}
+
+function simulateVectorSearch(query) {
+  const qStr = query.toLowerCase();
+  const scored = allPrinciples.map(p => {
+    let score = 0;
+    const targetStr = (p.title + ' ' + p.content + ' ' + (p.category_tag || '')).toLowerCase();
+    if (targetStr.includes(qStr)) score += 10;
+    const chars = qStr.split('').filter(c => c.trim().length > 0);
+    chars.forEach(c => { if (targetStr.includes(c)) score += 1; });
+    return { ...p, _score: score };
+  }).filter(p => p._score > 1).sort((a, b) => b._score - a._score);
+  return scored;
+}
+
+function toggleResultBlock(id) {
+  const block = document.getElementById(`block-${id}`);
+  const icon = document.getElementById(`icon-${id}`);
+  if (block.classList.contains('hidden')) { block.classList.remove('hidden'); icon.style.transform = 'rotate(180deg)'; } 
+  else { block.classList.add('hidden'); icon.style.transform = 'rotate(0deg)'; }
+}
+
+// ==========================================
+// 新增模块：任务清单记录 (To-Do List)
+// ==========================================
+async function handleTodoKey(e) {
+  if (e.key === 'Enter' && e.target.value.trim()) {
+    const val = e.target.value.trim();
+    // 这里使用 Supabase user_tasks 表，如果没有建表，可以回退到 localStorage，这里按照云端逻辑
+    const { error } = await _supabase.from('user_tasks').insert([{ content: val, user_id: '元' }]);
+    if (error) console.log("Task save error", error);
+    e.target.value = '';
+    loadTasks();
+  }
+}
+
+async function loadTasks() {
+  const { data } = await _supabase.from('user_tasks').select('*').eq('user_id', '元').order('created_at', { ascending: false });
+  const tasks = data || [];
+  const container = document.getElementById('todo-list');
+  if (tasks.length === 0) {
+    container.innerHTML = `<div class="text-[10px] text-gray-300 italic px-1 py-2">暂无待办事项</div>`;
+    return;
+  }
+  container.innerHTML = tasks.map(t => `
+    <div class="task-item group ${t.is_completed ? 'done' : ''}" onclick="toggleTask('${t.id}', ${t.is_completed})">
+      <div class="task-checkbox">${t.is_completed ? '✓' : ''}</div>
+      <span class="flex-1">${t.content}</span>
+      <button onclick="event.stopImmediatePropagation(); deleteTask('${t.id}')" class="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 transition-all text-xs">✕</button>
+    </div>
+  `).join('');
+}
+
+async function toggleTask(id, currentStatus) {
+  await _supabase.from('user_tasks').update({ is_completed: !currentStatus }).eq('id', id);
+  loadTasks();
+}
+
+async function deleteTask(id) {
+  await _supabase.from('user_tasks').delete().eq('id', id);
+  loadTasks();
+}
+
+// ==========================================
+// 新增模块：个人智慧问答关联记录
+// ==========================================
+async function saveInquiry(query, pId) {
+  const isPrivate = document.getElementById('privacy-toggle').checked;
+  const { error } = await _supabase.from('user_inquiries').insert([{ question: query, principle_id: pId, is_public: !isPrivate, user_id: '元' }]);
+  if (error) { alert("保存失败，请检查数据库权限配置"); return; }
+  
+  // 给用户视觉反馈
+  alert(`共创记录已保存！您已将该卡片作为问题 "${query}" 的启发答案。`);
+  loadInquiries();
+}
+
+async function loadInquiries() {
+  const { data } = await _supabase.from('user_inquiries').select('*, principles(title)').eq('user_id', '元').order('created_at', { ascending: false });
+  const inquiries = data || [];
+  const container = document.getElementById('my-inquiries-list');
+  if (inquiries.length === 0) {
+    container.innerHTML = `<div class="text-[10px] text-gray-300 italic px-2">暂无搜寻打勾记录</div>`;
+    return;
+  }
+  container.innerHTML = inquiries.map(inq => `
+    <div class="bg-purple-50/50 p-3 rounded-xl mb-2 border border-purple-100/50 hover:border-purple-200 transition-colors">
+      <div class="text-[10px] font-bold text-purple-400 mb-1 leading-tight">Q: ${inq.question}</div>
+      <div onclick="showDetail('${inq.principle_id}')" class="text-[11px] font-black text-purple-700 cursor-pointer hover:underline truncate">A: ${inq.principles?.title || '未知条目'}</div>
+    </div>
+  `).join('');
+}
+
+// 隐私开关交互
+document.getElementById('privacy-toggle').addEventListener('change', function(e) {
+    document.getElementById('privacy-label').innerText = e.target.checked ? "私密" : "公开";
+});
+
+// 点击外部关闭搜索面板
+document.addEventListener('click', (e) => {
+  const searchContainer = document.getElementById('smart-search-results');
+  const searchInput = document.getElementById('smart-search-input');
+  if (searchContainer && !searchContainer.classList.contains('hidden')) {
+    if (!searchContainer.contains(e.target) && e.target !== searchInput) {
+      searchContainer.classList.add('hidden');
+    }
+  }
+});
+
+// ==========================================
+// 隐性知识关联 (自动提取标签)
+// ==========================================
+function autoExtractKeywords(text) {
+  const { sorted } = getTagCountsAndSorted();
+  let extracted = [];
+  sorted.forEach(tag => { if (text.includes(tag) && tag.length >= 2) extracted.push(tag); });
+  return extracted;
+}
+
+// ==========================================
+// 基础数据与渲染逻辑
+// ==========================================
+function getSimilarity(a, b) {
+  a = (a || '').toLowerCase().replace(/#/g, '').trim();
+  b = (b || '').toLowerCase().replace(/#/g, '').trim();
+  if (!a || !b) return 0;
+  const setA = new Set(a); const setB = new Set(b);
+  const intersection = [...setA].filter(x => setB.has(x)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return intersection / union;
+}
+
+async function init() {
+  const { data } = await _supabase.from('principles').select('*').order('created_at', { ascending: false });
+  allPrinciples = data || [];
+  
+  document.getElementById('stat-date').innerText = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+  document.getElementById('total-principles').innerText = allPrinciples.length;
+  
+  updateSidebarTags();
+  
+  // 如果当前没在搜索态，才执行普通筛选
+  if (!currentSearchQuery) {
+      applyFilters();
+  } else {
+      executeMainSearch(currentSearchQuery);
+  }
+  
+  renderArchive();
+  loadTasks();
+  loadInquiries();
+}
+
+function getTagCountsAndSorted() {
+  const counts = {};
+  allPrinciples.forEach(p => {
+    if (p.category_tag) p.category_tag.split(',').forEach(tag => { const t = tag.trim(); if (t) counts[t] = (counts[t] || 0) + 1; });
+  });
+  const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  return { counts, sorted };
+}
+
+function updateSidebarTags() {
+  const { counts, sorted } = getTagCountsAndSorted();
+  document.getElementById('dynamic-tags-grid').innerHTML = sorted.map(t => {
+    const isActive = activeFilters.includes(t);
+    return `<div onclick="filterByTag('${t}')" class="sidebar-tag ${isActive?'active':'inactive'} hover:bg-gray-100"><span>#${t}</span><span class="tag-num">${counts[t]}</span></div>`;
+  }).join('');
+}
+
+function filterByTag(t) { 
+  if(currentSearchQuery) clearSearch(); // 点击标签时清除搜索状态
+  activeFilters.includes(t) ? activeFilters = activeFilters.filter(f=>f!==t) : activeFilters.push(t); 
+  updateSidebarTags(); 
+  applyFilters(); 
+}
+
+function applyFilters() {
+  const filtered = activeFilters.length ? allPrinciples.filter(p => activeFilters.every(f => p.category_tag?.includes(f))) : allPrinciples;
+  renderFeed(filtered);
+}
+
+function renderFeed(list, query = null) {
+  const container = document.getElementById('feed-container');
+  if (list.length === 0) {
+      container.innerHTML = `<div class="text-center py-20 text-gray-300 italic">未能找到相关启示。您可以尝试调整关键词。</div>`;
+      return;
+  }
+  
+  container.innerHTML = list.map(p => {
+    const isMine = p.author === '元';
+    return `
+    <article class="group relative bg-white p-8 rounded-[32px] border border-gray-100 hover:border-black/20 hover:shadow-xl transition-all duration-300">
+      <div class="flex justify-between items-start mb-4">
+        <span class="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-50 px-3 py-1 rounded-full block">#${p.category_tag || '综合启示'}</span>
+        ${query ? `<button onclick="event.stopImmediatePropagation(); saveInquiry('${query}', '${p.id}')" class="text-[10px] font-black bg-black text-white px-4 py-2 rounded-full hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-1">✓ 认可并保存</button>` : ''}
+      </div>
+      <div onclick="showDetail('${p.id}')" class="cursor-pointer">
+        <h2 class="text-3xl font-black tracking-tighter mb-4 group-hover:text-black text-gray-900 transition-colors">${p.title}</h2>
+        <p class="text-gray-500 text-[15px] italic line-clamp-3 mb-8 leading-relaxed font-light">${p.content ? p.content : '（暂无经文原文）'}</p>
+      </div>
+      <div class="flex gap-6 items-center border-t border-gray-50 pt-5">
+        <button onclick="event.stopImmediatePropagation();toggleLike('${p.id}')" class="text-[10px] font-black uppercase text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1">❤️ Like <span class="bg-gray-100 px-1.5 rounded">${p.likes_count || 0}</span></button>
+        <button onclick="event.stopImmediatePropagation();toggleCollect('${p.id}')" class="text-[10px] font-black uppercase text-gray-400 hover:text-amber-500 transition-colors">⭐ 收藏</button>
+        ${isMine ? `<button onclick="event.stopImmediatePropagation();deletePrinciple('${p.id}')" class="ml-auto text-red-300 hover:text-red-500 text-xs transition-colors font-black">🗑️ 删除</button>` : ''}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+async function toggleLike(id) {
+  const myLikes = JSON.parse(localStorage.getItem('my_likes') || '[]');
+  const isLiked = myLikes.includes(id);
+  const principle = allPrinciples.find(p => p.id == id);
+  let newCount = (principle?.likes_count || 0);
+  if (isLiked) {
+    newCount = Math.max(0, newCount - 1);
+    localStorage.setItem('my_likes', JSON.stringify(myLikes.filter(i => i !== id)));
+  } else {
+    newCount += 1;
+    myLikes.push(id);
+    localStorage.setItem('my_likes', JSON.stringify(myLikes));
+  }
+  await _supabase.from('principles').update({ likes_count: newCount }).eq('id', id);
+  init();
+}
+
+function toggleCollect(id) {
+  let myFavs = JSON.parse(localStorage.getItem('my_favs') || '[]');
+  if (myFavs.includes(id)) {
+    myFavs = myFavs.filter(i => i !== id);
+  } else {
+    myFavs.push(id);
+  }
+  localStorage.setItem('my_favs', JSON.stringify(myFavs));
+  renderArchive();
+}
+
+async function deletePrinciple(id) {
+  if (!confirm('确认删除整个原则卡片？此操作不可恢复！')) return;
+  await _supabase.from('principles').delete().eq('id', id);
+  let myLikes = JSON.parse(localStorage.getItem('my_likes') || '[]');
+  let myFavs = JSON.parse(localStorage.getItem('my_favs') || '[]');
+  myLikes = myLikes.filter(i => i !== id);
+  myFavs = myFavs.filter(i => i !== id);
+  localStorage.setItem('my_likes', JSON.stringify(myLikes));
+  localStorage.setItem('my_favs', JSON.stringify(myFavs));
+  init();
+}
+
+function renderArchive() {
+  const myData = allPrinciples.filter(p => p.author === '元');
+  const likeIds = JSON.parse(localStorage.getItem('my_likes') || '[]');
+  const favIds = JSON.parse(localStorage.getItem('my_favs') || '[]');
+  document.getElementById('count-created').innerText = myData.length;
+  document.getElementById('count-liked').innerText = likeIds.length;
+  document.getElementById('count-collected').innerText = favIds.length;
+  const r = (list) => list.map(p => `<div onclick="showDetail('${p.id}')" class="wisdom-item group"><h4 class="font-black text-[10px] uppercase line-clamp-1 group-hover:text-black text-gray-700">${p.title}</h4></div>`).join('');
+  document.getElementById('my-principles-list').innerHTML = r(myData);
+  document.getElementById('my-likes-list').innerHTML = r(allPrinciples.filter(p => likeIds.includes(p.id)));
+  document.getElementById('my-collect-list').innerHTML = r(allPrinciples.filter(p => favIds.includes(p.id)));
+}
+
+async function showDetail(id) {
+  currentPrinciple = allPrinciples.find(p => p.id == id);
+  document.getElementById('detail-view').classList.remove('hidden');
+  document.getElementById('detail-title').innerText = currentPrinciple.title;
+  document.getElementById('detail-content').innerText = currentPrinciple.content || '（暂无经文原文）';
+
+  let tagsHTML = currentPrinciple.category_tag ? currentPrinciple.category_tag.split(',').map(t => `<span class="bg-black text-white px-3 py-1 text-[8px] font-black uppercase mr-2 rounded">#${t.trim()}</span>`).join('') : '';
+  tagsHTML += `<button onclick="editTags()" class="ml-2 bg-gray-100 hover:bg-gray-200 px-4 py-1 text-[8px] font-black uppercase rounded-full flex items-center gap-1">✏️ 编辑标签</button>`;
+  document.getElementById('detail-tags').innerHTML = tagsHTML;
+
+  document.getElementById('explanation-input').value = '';
+  document.getElementById('instance-input').value = '';
+
+  await loadDiscourse(id);
+  await loadInstances(id);
+}
+
+async function loadDiscourse(pId) {
+  const { data } = await _supabase.from('instances').select('*').eq('principle_id', pId).order('created_at', { ascending: false });
+  const filtered = (data || []).filter(ins => ins.author === '话语解释');
+  document.getElementById('discourse-list').innerHTML = filtered.map(ins => {
+    const dateStr = new Date(ins.created_at).toLocaleDateString();
+    return `<div class="bg-white p-6 rounded-[24px] shadow-sm relative group hover:shadow-md transition-shadow">
+      <p class="text-xl italic leading-relaxed text-gray-800">"${ins.content}"</p>
+      <div class="text-right text-[10px] text-gray-400 mt-4">${dateStr}</div>
+      <button onclick="deleteInstance('${ins.id}', 'discourse')" class="absolute top-4 right-4 text-red-300 opacity-0 group-hover:opacity-100 text-xs hover:text-red-500 transition-all">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+async function loadInstances(pId) {
+  const { data } = await _supabase.from('instances').select('*').eq('principle_id', pId).order('created_at', { ascending: false });
+  const filtered = (data || []).filter(ins => ins.author !== '话语解释');
+  document.getElementById('instance-list').innerHTML = filtered.map(ins => {
+    const dateStr = new Date(ins.created_at).toLocaleDateString();
+    return `<div class="bg-white p-6 rounded-[24px] shadow-sm relative group hover:shadow-md transition-shadow">
+      <p class="text-xl italic leading-relaxed text-gray-800">"${ins.content}"</p>
+      <div class="text-right text-[10px] text-gray-400 mt-4">${dateStr}</div>
+      <button onclick="deleteInstance('${ins.id}', 'praxis')" class="absolute top-4 right-4 text-red-300 opacity-0 group-hover:opacity-100 text-xs hover:text-red-500 transition-all">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteInstance(id, type) {
+  if (!confirm('确认删除这条内容？')) return;
+  await _supabase.from('instances').delete().eq('id', id);
+  if (type === 'discourse') await loadDiscourse(currentPrinciple.id);
+  else await loadInstances(currentPrinciple.id);
+}
+
+async function uploadExplanation() {
+  const input = document.getElementById('explanation-input');
+  if (!input.value.trim()) return;
+  await _supabase.from('instances').insert([{ principle_id: currentPrinciple.id, content: input.value, author: '话语解释' }]);
+  input.value = '';
+  await loadDiscourse(currentPrinciple.id);
+}
+
+async function postInstance() {
+  const input = document.getElementById('instance-input');
+  if (!input.value.trim()) return;
+  await _supabase.from('instances').insert([{ principle_id: currentPrinciple.id, content: input.value, author: '元' }]);
+  input.value = '';
+  await loadInstances(currentPrinciple.id);
+}
+
+function autoFillSource() {
+  const verse = document.getElementById('new-verse').value.trim();
+  const sourceInput = document.getElementById('new-source');
+  const regex = /([一-龥]+(?:福音|书|传|诗篇|箴言|王上|王下|历代志|撒母耳记|民数记|出埃及记|利未记|创世记|申命记|士师记|路加福音|约翰福音|罗马书|哥林多前后书|帖撒罗尼迦前后书|提摩太前后书|腓立比书|歌罗西书|以弗所书|雅各书|彼得前后书|犹大书|启示录|马太福音|马可福音|希伯来书|约伯记|雅歌|以赛亚书|耶利米书|以西结书|但以理书|何西阿书|约珥书|俄巴底亚书|弥迦书|哈巴谷书|西番雅书|哈该书|撒迦利亚书|玛拉基书))[\s]*(\d+)[:：](\d+)(?:[-–](\d+))?/i;
+  let match = verse.match(regex);
+  if (match) { sourceInput.value = match[0].trim(); return; }
+  const sourceRegex = /(?:(?:经文)?(?:来自|出处|引用|记载于|见于))[:：\s]*([^\n，。]+)/i;
+  match = verse.match(sourceRegex);
+  if (match && match[1]) { sourceInput.value = match[1].trim(); return; }
+  if (!verse) sourceInput.value = '';
+}
+
+function renderTagPickerContent(isEditing) {
+  const { counts, sorted } = getTagCountsAndSorted();
+  const pickerTitle = isEditing ? "编辑标签" : "选用并提交";
+  const selectedHTML = tempSelectedTags.length 
+    ? tempSelectedTags.map(tag => `<span onclick="removeSelectedTag('${tag}', ${isEditing});" class="inline-flex items-center gap-1 bg-black text-white px-4 py-1 text-sm rounded-3xl cursor-pointer hover:bg-gray-800 transition-colors">#${tag} <span class="text-xs">×</span></span>`).join('')
+    : '<span class="text-gray-400 text-sm italic">尚未手动选用任何标签</span>';
+  const existingHTML = sorted.map(t => {
+    const isSelected = tempSelectedTags.includes(t);
+    return `<button onclick="toggleExistingTag('${t}', ${isEditing});" class="px-5 py-2 border-2 ${isSelected ? 'border-black bg-black text-white' : 'border-gray-200 hover:border-black'} rounded-3xl font-black text-[10px] transition-all flex items-center gap-1">#${t} <span class="tag-num text-xs opacity-50">${counts[t]}</span></button>`;
+  }).join('');
+  document.getElementById('picker-step-content').innerHTML = `
+    <div class="max-w-2xl w-full px-4 bg-white p-8 rounded-[40px] shadow-2xl relative">
+      <h2 class="text-3xl font-black italic mb-6 uppercase tracking-tighter flex justify-between items-center">
+        <span>${pickerTitle}</span>
+        <button onclick="confirmTags(${isEditing});" class="bg-black text-white px-8 py-2.5 rounded-3xl text-sm font-black hover:scale-105 transition-transform">确认执行</button>
+      </h2>
+      <div class="mb-8 text-left border-b border-gray-100 pb-6">
+        <div class="text-[10px] font-black uppercase tracking-widest mb-3 text-gray-400">已选用标签 (系统将自动隐性关联更多标签)</div>
+        <div class="flex flex-wrap gap-2">${selectedHTML}</div>
+      </div>
+      <div class="mb-8 p-6 border border-gray-100 bg-gray-50/50 rounded-3xl text-left">
+        <h4 class="text-xs text-gray-400 font-black uppercase tracking-widest mb-3">创建新标签</h4>
+        <div class="flex gap-3">
+          <input id="new-tag-input" placeholder="输入自定义标签名称..." class="flex-1 bg-white border border-gray-200 rounded-2xl px-5 py-4 outline-none text-base focus:border-black transition-colors">
+          <button onclick="addNewTagToSelection(${isEditing});" class="bg-black text-white px-8 py-4 rounded-3xl font-black text-sm whitespace-nowrap hover:bg-gray-800 transition-colors">创建并选用</button>
+        </div>
+      </div>
+      <div class="text-left">
+        <h4 class="text-xs text-gray-400 font-black uppercase tracking-widest mb-3">已有标签库</h4>
+        <div class="flex flex-wrap gap-2 max-h-[30vh] overflow-y-auto pb-4">${existingHTML}</div>
+      </div>
+      <div class="flex justify-end mt-8 gap-4">
+        <button onclick="closeOverlay()" class="text-[10px] font-black text-gray-400 hover:text-black uppercase tracking-widest transition-colors">取消并返回</button>
+      </div>
+    </div>`;
+}
+
+function toggleExistingTag(t, isEditing) {
+  if (tempSelectedTags.includes(t)) tempSelectedTags = tempSelectedTags.filter(tag => tag !== t); else tempSelectedTags.push(t);
+  renderTagPickerContent(isEditing);
+}
+
+function removeSelectedTag(t, isEditing) {
+  tempSelectedTags = tempSelectedTags.filter(tag => tag !== t);
+  renderTagPickerContent(isEditing);
+}
+
+function addNewTagToSelection(isEditing) {
+  const input = document.getElementById('new-tag-input');
+  let val = input.value.trim();
+  if (!val) return;
+  const { sorted } = getTagCountsAndSorted();
+  const exact = sorted.find(t => t.toLowerCase() === val.toLowerCase());
+  if (exact) { if (!tempSelectedTags.includes(exact)) tempSelectedTags.push(exact); input.value = ''; renderTagPickerContent(isEditing); return; }
+  let similar = null;
+  for (let t of sorted) { if (getSimilarity(val, t) > 0.65) { similar = t; break; } }
+  if (similar) {
+    if (confirm(`发现相似标签 “#${similar}”\n\n是否使用已有标签？\n（取消则保留您新建的标签）`)) {
+      if (!tempSelectedTags.includes(similar)) tempSelectedTags.push(similar);
+      input.value = '';
+      renderTagPickerContent(isEditing);
+      return;
+    }
+  }
+  if (!tempSelectedTags.includes(val)) tempSelectedTags.push(val);
+  input.value = '';
+  renderTagPickerContent(isEditing);
+}
+
+async function confirmTags(isEditing) {
+  const rawTitle = document.getElementById('new-title').value.trim();
+  const rawVerse = document.getElementById('new-verse').value.trim();
+  const autoTags = autoExtractKeywords(rawTitle + " " + rawVerse);
+  
+  let finalTagsArray = [...new Set([...tempSelectedTags, ...autoTags])];
+  
+  if (finalTagsArray.length === 0 && !isEditing) { 
+    if(!confirm('未检测到关联标签，确定直接上传吗？')) return; 
+  }
+  
+  const newTagStr = finalTagsArray.join(', ');
+
+  if (isEditing) {
+    const { error } = await _supabase.from('principles').update({ category_tag: newTagStr }).eq('id', currentPrinciple.id);
+    if (!error) {
+      currentPrinciple.category_tag = newTagStr;
+      let tagsHTML = newTagStr.split(',').map(tt => `<span class="bg-black text-white px-3 py-1 text-[8px] font-black uppercase mr-2 rounded">#${tt.trim()}</span>`).join('');
+      tagsHTML += `<button onclick="editTags()" class="ml-2 bg-gray-100 hover:bg-gray-200 px-4 py-1 text-[8px] font-black uppercase rounded-full flex items-center gap-1">✏️ 编辑标签</button>`;
+      document.getElementById('detail-tags').innerHTML = tagsHTML;
+    }
+  } else {
+    const btn = document.getElementById('commit-btn');
+    btn.innerText = "COMMITTING...";
+    btn.style.opacity = "0.7";
+    btn.disabled = true;
+    
+    await _supabase.from('principles').insert([{
+      title: rawTitle || '今日话语',
+      content: rawVerse,
+      source: document.getElementById('new-source').value.trim() || '未提供出处',
+      category_tag: newTagStr,
+      author: '元',
+      likes_count: 0
+    }]);
+    
+    btn.innerText = "COMMIT";
+    btn.style.opacity = "1";
+    btn.disabled = false;
+    
+    document.getElementById('new-title').value = '';
+    document.getElementById('new-verse').value = '';
+    document.getElementById('new-source').value = '';
+  }
+  closeOverlay();
+  init();
+}
+
+function showTagPicker(isEditing = false) {
+  tempSelectedTags = [];
+  if (isEditing && currentPrinciple && currentPrinciple.category_tag) tempSelectedTags = currentPrinciple.category_tag.split(',').map(t => t.trim()).filter(Boolean);
+  const overlay = document.getElementById('tag-picker-overlay');
+  overlay.classList.remove('hidden'); overlay.style.display = 'flex';
+  renderTagPickerContent(isEditing);
+}
+
+function editTags() { if (!currentPrinciple) return; showTagPicker(true); }
+
+function startPublishFlow() {
+  const verse = document.getElementById('new-verse').value.trim();
+  if (!verse) { alert('内容不能为空，请填写经文原文'); return; }
+  tempPostData = { verse: verse };
+  showTagPicker(false);
+}
+
+function backToHome() { document.getElementById('detail-view').classList.add('hidden'); tempSelectedTags = []; }
+
+function closeOverlay() {
+  const overlay = document.getElementById('tag-picker-overlay');
+  overlay.classList.add('hidden'); overlay.style.display = 'none';
+  tempSelectedTags = [];
+}
+
+// 启动
+window.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>
