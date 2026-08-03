@@ -112,6 +112,12 @@
             if(m) return {ref: m[1], body: m[2]};
             return {ref: '', body: content};
         }
+        function audioUrlFor(dateStr, i){
+            try{
+                var r = _db.storage.from('audio').getPublicUrl(dateStr+'-'+i+'.mp3');
+                return (r && r.data && r.data.publicUrl) ? r.data.publicUrl : '';
+            }catch(e){ return ''; }
+        }
         async function loadToday(){
             var res = await _db.from('scripture').select('id,title,content,created_at').order('created_at',{ascending:false}).limit(1);
             var s = res.data && res.data[0];
@@ -128,10 +134,10 @@
                 title: s.title,
                 ref: parsed.ref,
                 chapters: [
-                    {label:'经文原文', text: s.content, audioUrl:'audio/'+dateStr+'-0.mp3'},
-                    {label:'背景介绍', text: byType.background || '', audioUrl:'audio/'+dateStr+'-1.mp3'},
-                    {label:'经文解读', text: byType.interpretation || '', audioUrl:'audio/'+dateStr+'-2.mp3'},
-                    {label:'生命实践与祷告', text: byType.practice || '', audioUrl:'audio/'+dateStr+'-3.mp3'}
+                    {label:'经文原文', text: s.content, audioUrl: audioUrlFor(dateStr,0)},
+                    {label:'背景介绍', text: byType.background || '', audioUrl: audioUrlFor(dateStr,1)},
+                    {label:'经文解读', text: byType.interpretation || '', audioUrl: audioUrlFor(dateStr,2)},
+                    {label:'生命实践与祷告', text: byType.practice || '', audioUrl: audioUrlFor(dateStr,3)}
                     ].filter(function(c){return c.text;})
             };
             document.getElementById('lp-date').textContent = DATA.date;
@@ -155,6 +161,9 @@
         audioEl.onended = function(){
             if(chapterIndex < DATA.chapters.length-1){ chapterIndex++; renderChapters(); play(); }
             else { playing=false; updateIcon(); document.getElementById('lp-status').textContent='播放完了'; }
+        };
+        audioEl.onerror = function(){
+            if(playing && DATA) speakTTS(DATA.chapters[chapterIndex]);
         };
         function speakTTS(chapter){
             var utter = new SpeechSynthesisUtterance(chapter.text);
@@ -183,7 +192,8 @@
             if(hasAudio){
                 audioEl.src = chapter.audioUrl;
                 audioEl.playbackRate = rate;
-                audioEl.play();
+                var p = audioEl.play();
+                if(p && p.catch) p.catch(function(){ if(playing) speakTTS(chapter); });
                 document.getElementById('lp-status').textContent = '正在播放：'+chapter.label;
             } else {
                 speakTTS(chapter);
