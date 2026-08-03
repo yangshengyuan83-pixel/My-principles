@@ -1,9 +1,9 @@
 (function(){
-  function addStyle(){
-    var s = document.createElement('style');
-    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}.history-toggle-row{cursor:pointer;text-align:center;font-size:12px;color:#64748b;border:1px solid #e2e8f0;border-radius:999px;padding:10px;margin:16px 0;background:#fafafa}.history-toggle-row:hover{background:#f1f5f9}.history-collapsed{max-height:34px;overflow:hidden;cursor:pointer;position:relative;padding-top:8px!important;padding-bottom:8px!important;margin-top:4px!important;transition:max-height .2s ease}.history-collapsed *{display:none!important}.history-collapsed::before{content:attr(data-collapsed-label);display:block!important;font-size:12px;color:#94a3b8}.history-collapsed::after{content:"点击展开";display:block!important;position:absolute;top:8px;right:20px;font-size:11px;color:#cbd5e1}';
-    document.head.appendChild(s);
-  }
+    function addStyle(){
+          var s = document.createElement('style');
+      s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}.history-toggle-row{cursor:pointer;text-align:center;font-size:12px;color:#64748b;border:1px solid #e2e8f0;border-radius:999px;padding:10px;margin:16px 0;background:#fafafa}.history-toggle-row:hover{background:#f1f5f9}.history-collapsed{max-height:34px;overflow:hidden;cursor:pointer;position:relative;padding-top:8px!important;padding-bottom:8px!important;margin-top:4px!important;transition:max-height .2s ease}.history-collapsed *{display:none!important}.history-collapsed::before{content:attr(data-collapsed-label);display:block!important;font-size:12px;color:#94a3b8}.history-collapsed::after{content:"点击展开";display:block!important;position:absolute;top:8px;right:20px;font-size:11px;color:#cbd5e1}.history-collapse-btn{cursor:pointer;font-size:11px;color:#94a3b8;padding:2px 10px;border:1px solid #e2e8f0;border-radius:999px}.history-collapse-btn:hover{color:#1a1a1a;border-color:#1a1a1a}';
+      document.head.appendChild(s);
+    }
   function buildPlayer(){
     var el = document.createElement('div');
     el.id = 'listen-player';
@@ -61,12 +61,22 @@
           if(this.classList.contains('history-collapsed')){
             this.classList.remove('history-collapsed');
             this.dataset.expanded = '1';
-          } else {
-            this.classList.add('history-collapsed');
-            this.dataset.expanded = '';
+            e.stopPropagation();
           }
-          e.stopPropagation();
         });
+        var dateRow = card.children[0];
+        if(dateRow && !dateRow.querySelector('.history-collapse-btn')){
+          var btn = document.createElement('span');
+          btn.className = 'history-collapse-btn';
+          btn.textContent = '收起 ▲';
+          btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            e.preventDefault();
+            card.classList.add('history-collapsed');
+            card.dataset.expanded = '';
+          });
+          dateRow.appendChild(btn);
+        }
       }
     });
     refreshToggleText();
