@@ -1,14 +1,50 @@
 (function(){
   function addStyle(){
     var s = document.createElement('style');
-    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:28px;padding:32px 28px;margin-bottom:32px;text-align:center}#listen-player .lp-date{font-size:12px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:24px;font-weight:900;margin:8px 0 4px;line-height:1.35}#listen-player .lp-ref{font-size:13px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:20px 0 6px}#listen-player .lp-chapters button{flex:1;max-width:60px;height:5px;border-radius:3px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:12px;color:#94a3b8;margin-bottom:16px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:26px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:60px;height:60px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-speed{display:flex;justify-content:center;gap:8px;margin-top:18px}#listen-player .lp-speed button{font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:12px;color:#94a3b8;text-align:center;margin-top:12px;min-height:16px}.history-collapsed{max-height:64px;overflow:hidden;cursor:pointer;position:relative;transition:max-height .25s ease}.history-collapsed::after{content:"点击展开";position:absolute;bottom:8px;right:24px;font-size:11px;color:#94a3b8;background:#fff;padding:2px 8px}';
+    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}.history-collapsed{max-height:34px;overflow:hidden;cursor:pointer;position:relative;padding-top:8px!important;padding-bottom:8px!important;transition:max-height .2s ease}.history-collapsed *{display:none!important}.history-collapsed::before{content:attr(data-collapsed-label);display:block!important;font-size:12px;color:#94a3b8}.history-collapsed::after{content:"点击展开";display:block!important;position:absolute;top:8px;right:20px;font-size:11px;color:#cbd5e1}';
     document.head.appendChild(s);
   }
   function buildPlayer(){
     var el = document.createElement('div');
     el.id = 'listen-player';
-    el.innerHTML = '<div class="lp-date" id="lp-date">加载中...</div><div class="lp-title" id="lp-title"></div><div class="lp-ref" id="lp-ref"></div><div class="lp-chapters" id="lp-chapters"></div><div class="lp-chapter-label" id="lp-chapter-label"></div><div class="lp-controls"><button id="lp-prev" aria-label="上一段"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button><button class="lp-play" id="lp-play" aria-label="播放"><svg id="lp-play-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button><button id="lp-next" aria-label="下一段"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg></button></div><div class="lp-speed" id="lp-speed"><button data-speed="0.85">0.85x</button><button data-speed="1" class="active">1x</button><button data-speed="1.15">1.15x</button></div><div class="lp-status" id="lp-status">加载今天的经文中...</div>';
+    el.innerHTML = '<div class="lp-date" id="lp-date">加载中...</div><div class="lp-title" id="lp-title"></div><div class="lp-ref" id="lp-ref"></div><div class="lp-chapters" id="lp-chapters"></div><div class="lp-chapter-label" id="lp-chapter-label"></div><div class="lp-controls"><button id="lp-prev" aria-label="上一段"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button><button class="lp-play" id="lp-play" aria-label="播放"><svg id="lp-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button><button id="lp-next" aria-label="下一段"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg></button></div><div class="lp-speed" id="lp-speed"><button data-speed="0.85">0.85x</button><button data-speed="1" class="active">1x</button><button data-speed="1.15">1.15x</button></div><div class="lp-status" id="lp-status">加载今天的经文中...</div>';
     return el;
+  }
+  function hideSidebars(){
+    var nav = document.querySelector('nav.w-72');
+    var aside = document.querySelector('aside.w-72');
+    if(nav) nav.style.display = 'none';
+    if(aside) aside.style.display = 'none';
+  }
+  function compactHistory(feed){
+    var cards = feed.children;
+    for(var i=0;i<cards.length;i++){
+      if(i===0){
+        cards[i].classList.remove('history-collapsed');
+        cards[i].style.marginTop = '';
+        continue;
+      }
+      if(cards[i].dataset.expanded) continue;
+      if(!cards[i].dataset.dateLabel){
+        var txt = cards[i].textContent.trim();
+        var m = txt.match(/\d{1,2}\/\d{1,2}/);
+        cards[i].dataset.dateLabel = m ? m[0] : txt.slice(0,8);
+      }
+      cards[i].classList.add('history-collapsed');
+      cards[i].setAttribute('data-collapsed-label', cards[i].dataset.dateLabel);
+      cards[i].style.marginTop = '4px';
+      if(!cards[i].dataset.bound){
+        cards[i].dataset.bound = '1';
+        cards[i].addEventListener('click', function(e){
+          if(this.classList.contains('history-collapsed')){
+            this.classList.remove('history-collapsed');
+            this.dataset.expanded = '1';
+            this.style.marginTop = '';
+            e.stopPropagation();
+          }
+        });
+      }
+    }
   }
   function init(){
     var searchInput = document.getElementById('smart-search-input');
@@ -18,6 +54,7 @@
     var feed = document.getElementById('flow-feed');
     if(!section || !feed) return;
     addStyle();
+    hideSidebars();
     var player = buildPlayer();
     section.insertBefore(player, section.firstChild);
     section.insertBefore(feed, player.nextSibling);
@@ -26,31 +63,19 @@
     if(searchWrap) section.appendChild(searchWrap);
     var searchHeader = document.getElementById('search-header');
     if(searchHeader) section.appendChild(searchHeader);
-    function collapseHistory(){
-      var cards = feed.children;
-      for(var i=0;i<cards.length;i++){
-        if(i===0){ cards[i].classList.remove('history-collapsed'); }
-        else if(!cards[i].dataset.expanded){ cards[i].classList.add('history-collapsed'); }
-        if(!cards[i].dataset.bound){
-          cards[i].dataset.bound = '1';
-          cards[i].addEventListener('click', function(e){
-            if(this.classList.contains('history-collapsed')){
-              this.classList.remove('history-collapsed');
-              this.dataset.expanded = '1';
-              e.stopPropagation();
-            }
-          });
-        }
-      }
-    }
-    collapseHistory();
-    new MutationObserver(collapseHistory).observe(feed, {childList:true});
+    compactHistory(feed);
+    new MutationObserver(function(){ compactHistory(feed); }).observe(feed, {childList:true});
     var DATA = null, chapterIndex = 0, playing = false, rate = 1, voice = null;
     function pickVoice(){
       var voices = speechSynthesis.getVoices();
       voice = voices.find(function(v){return v.lang==='zh-CN';}) || voices.find(function(v){return v.lang && v.lang.indexOf('zh')===0;}) || null;
     }
     speechSynthesis.onvoiceschanged = pickVoice; pickVoice();
+    function splitRef(content){
+      var m = content.match(/^([^\s]{4,20}[：:][^\s]{1,15})\s+([\s\S]*)$/);
+      if(m) return {ref: m[1], body: m[2]};
+      return {ref: '', body: content};
+    }
     async function loadToday(){
       var res = await _db.from('scripture').select('id,title,content,created_at').order('created_at',{ascending:false}).limit(1);
       var s = res.data && res.data[0];
@@ -59,9 +84,11 @@
       var byType = {};
       (cres.data||[]).forEach(function(c){ byType[c.creation_type]=c.content; });
       var d = new Date(s.created_at);
+      var parsed = splitRef(s.content);
       DATA = {
         date: d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日',
         title: s.title,
+        ref: parsed.ref,
         chapters: [
           {label:'经文原文', text: s.content},
           {label:'背景介绍', text: byType.background || ''},
@@ -71,7 +98,7 @@
       };
       document.getElementById('lp-date').textContent = DATA.date;
       document.getElementById('lp-title').textContent = DATA.title;
-      document.getElementById('lp-ref').textContent = '今日读经';
+      document.getElementById('lp-ref').textContent = DATA.ref;
       renderChapters();
       document.getElementById('lp-status').textContent = '点击播放，收听今天的经文';
     }
