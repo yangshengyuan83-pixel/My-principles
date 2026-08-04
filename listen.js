@@ -1,7 +1,7 @@
 (function(){
   function addStyle(){
     var s = document.createElement('style');
-    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}.history-toggle-row{cursor:pointer;text-align:center;font-size:12px;color:#64748b;border:1px solid #e2e8f0;border-radius:999px;padding:10px;margin:16px 0;background:#fafafa}.history-toggle-row:hover{background:#f1f5f9}.history-collapsed{max-height:34px;overflow:hidden;cursor:pointer;position:relative;padding-top:8px!important;padding-bottom:8px!important;margin-top:4px!important;transition:max-height .2s ease}.history-collapsed *{display:none!important}.history-collapsed::before{content:attr(data-collapsed-label);display:block!important;font-size:12px;color:#94a3b8}.history-collapsed::after{content:"点击展开";display:block!important;position:absolute;top:8px;right:20px;font-size:11px;color:#cbd5e1}';
+    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}.history-toggle-row{cursor:pointer;text-align:center;font-size:12px;color:#64748b;border:1px solid #e2e8f0;border-radius:999px;padding:10px;margin:16px 0;background:#fafafa}.history-toggle-row:hover{background:#f1f5f9}.history-row{display:flex;align-items:center;gap:14px;padding:14px 6px;border-bottom:1px solid #f1f5f9;cursor:pointer}.history-row:hover{background:#fafafa}.history-row-date{font-size:11px;color:#94a3b8;font-weight:700;font-family:monospace;flex-shrink:0;width:38px}.history-row-title{font-size:14px;color:#1a1a1a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}';
     document.head.appendChild(s);
   }
   function buildPlayer(){
@@ -20,13 +20,18 @@
   function setupHistory(feed){
     if(historyBusy) return;
     historyBusy = true;
-    var all = Array.prototype.slice.call(feed.children).filter(function(el){ return el.id !== 'history-toggle-row'; });
+    var all = Array.prototype.slice.call(feed.children).filter(function(el){
+      return el.id !== 'history-toggle-row' && !el.classList.contains('history-row');
+    });
     if(all.length===0){ historyBusy = false; return; }
-    all[0].classList.remove('history-collapsed');
     all[0].style.display = '';
-    all[0].style.marginTop = '';
     var rest = all.slice(1);
     var toggle = document.getElementById('history-toggle-row');
+    function refreshToggleText(){
+      if(!toggle) return;
+      var open = feed.classList.contains('history-open');
+      toggle.textContent = open ? '收起过往记录' : ('查看过往 '+rest.length+' 条记录');
+    }
     if(!toggle && rest.length>0){
       toggle = document.createElement('div');
       toggle.id = 'history-toggle-row';
@@ -34,40 +39,36 @@
       feed.insertBefore(toggle, rest[0]);
       toggle.onclick = function(){
         var open = feed.classList.toggle('history-open');
-        rest.forEach(function(card){ card.style.display = open ? '' : 'none'; });
+        rest.forEach(function(card){
+          if(card._historyRow) card._historyRow.style.display = open ? '' : 'none';
+        });
         refreshToggleText();
       };
     }
-    function refreshToggleText(){
-      if(!toggle) return;
-      var open = feed.classList.contains('history-open');
-      toggle.textContent = open ? '收起过往记录' : ('查看过往 '+rest.length+' 条记录');
-    }
     var open = feed.classList.contains('history-open');
     rest.forEach(function(card){
-      card.style.display = open ? '' : 'none';
-      if(!card.dataset.dateLabel){
-        var txt = card.textContent.trim();
-        var m = txt.match(/\d{1,2}\/\d{1,2}/);
-        card.dataset.dateLabel = m ? m[0] : txt.slice(0,8);
+      card.style.display = 'none';
+      if(!card._historyRow){
+        var clickTarget = card.querySelector('.cursor-pointer');
+        var dateSpan = card.querySelector('.mb-6 span');
+        var heading = clickTarget ? clickTarget.querySelector('h1,h2,h3,h4') : null;
+        var row = document.createElement('div');
+        row.className = 'history-row';
+        var dateText = dateSpan ? dateSpan.textContent.trim() : '';
+        var titleText = heading ? heading.textContent.trim() : '';
+        var dateEl = document.createElement('span');
+        dateEl.className = 'history-row-date';
+        dateEl.textContent = dateText;
+        var titleEl = document.createElement('span');
+        titleEl.className = 'history-row-title';
+        titleEl.textContent = titleText;
+        row.appendChild(dateEl);
+        row.appendChild(titleEl);
+        row.onclick = function(){ if(clickTarget) clickTarget.click(); };
+        feed.insertBefore(row, card);
+        card._historyRow = row;
       }
-      card.setAttribute('data-collapsed-label', card.dataset.dateLabel);
-      if(!card.dataset.expanded){
-        card.classList.add('history-collapsed');
-      }
-      if(!card.dataset.bound){
-        card.dataset.bound = '1';
-        card.addEventListener('click', function(e){
-          if(this.classList.contains('history-collapsed')){
-            this.classList.remove('history-collapsed');
-            this.dataset.expanded = '1';
-          } else {
-            this.classList.add('history-collapsed');
-            this.dataset.expanded = '';
-          }
-          e.stopPropagation();
-        });
-      }
+      card._historyRow.style.display = open ? '' : 'none';
     });
     refreshToggleText();
     historyBusy = false;
