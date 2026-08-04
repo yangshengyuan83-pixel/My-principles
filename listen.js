@@ -1,7 +1,7 @@
 (function(){
   function addStyle(){
     var s = document.createElement('style');
-    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}.history-toggle-row{cursor:pointer;text-align:center;font-size:12px;color:#64748b;border:1px solid #e2e8f0;border-radius:999px;padding:10px;margin:16px 0;background:#fafafa}.history-toggle-row:hover{background:#f1f5f9}.history-row{display:flex;align-items:center;gap:14px;padding:14px 6px;border-bottom:1px solid #f1f5f9;cursor:pointer}.history-row:hover{background:#fafafa}.history-row-date{font-size:11px;color:#94a3b8;font-weight:700;font-family:monospace;flex-shrink:0;width:38px}.history-row-title{font-size:14px;color:#1a1a1a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}';
+    s.textContent = '#listen-player{background:#fff;border:2px solid #f1f5f9;border-radius:22px;padding:18px 20px;margin-bottom:24px;text-align:center}#listen-player .lp-date{font-size:11px;color:#94a3b8;letter-spacing:.05em;font-weight:700}#listen-player .lp-title{font-size:18px;font-weight:900;margin:4px 0 2px;line-height:1.3}#listen-player .lp-ref{font-size:12px;color:#64748b}#listen-player .lp-chapters{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}#listen-player .lp-chapters button{flex:1;max-width:50px;height:4px;border-radius:2px;border:none;background:#e2e8f0;padding:0;cursor:pointer}#listen-player .lp-chapters button.active{background:#1a1a1a}#listen-player .lp-chapters button.done{background:#94a3b8}#listen-player .lp-chapter-label{font-size:11px;color:#94a3b8;margin-bottom:10px}#listen-player .lp-controls{display:flex;align-items:center;justify-content:center;gap:20px}#listen-player .lp-controls button{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a}#listen-player .lp-play{width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff}#listen-player .lp-play svg{width:20px;height:20px}#listen-player .lp-speed{display:flex;justify-content:center;gap:6px;margin-top:10px}#listen-player .lp-speed button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;background:none;color:#64748b;cursor:pointer}#listen-player .lp-speed button.active{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}#listen-player .lp-status{font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;min-height:14px}#history-list-label{font-size:12px;color:#94a3b8;font-weight:700;margin:22px 4px 4px}.history-row{display:flex;align-items:baseline;gap:14px;padding:15px 6px;border-bottom:1px solid #f1f5f9;cursor:pointer}.history-row:hover{background:#fafafa}.history-row-date{font-size:11px;color:#94a3b8;font-weight:700;font-family:monospace;flex-shrink:0;width:38px}.history-row-title{font-size:14px;color:#1a1a1a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}';
     document.head.appendChild(s);
   }
   function buildPlayer(){
@@ -21,31 +21,18 @@
     if(historyBusy) return;
     historyBusy = true;
     var all = Array.prototype.slice.call(feed.children).filter(function(el){
-      return el.id !== 'history-toggle-row' && !el.classList.contains('history-row');
+      return el.id !== 'history-list-label' && !el.classList.contains('history-row');
     });
     if(all.length===0){ historyBusy = false; return; }
     all[0].style.display = '';
     var rest = all.slice(1);
-    var toggle = document.getElementById('history-toggle-row');
-    function refreshToggleText(){
-      if(!toggle) return;
-      var open = feed.classList.contains('history-open');
-      toggle.textContent = open ? '收起过往记录' : ('查看过往 '+rest.length+' 条记录');
+    var label = document.getElementById('history-list-label');
+    if(!label && rest.length>0){
+      label = document.createElement('div');
+      label.id = 'history-list-label';
+      label.textContent = '过往记录';
+      feed.insertBefore(label, rest[0]);
     }
-    if(!toggle && rest.length>0){
-      toggle = document.createElement('div');
-      toggle.id = 'history-toggle-row';
-      toggle.className = 'history-toggle-row';
-      feed.insertBefore(toggle, rest[0]);
-      toggle.onclick = function(){
-        var open = feed.classList.toggle('history-open');
-        rest.forEach(function(card){
-          if(card._historyRow) card._historyRow.style.display = open ? '' : 'none';
-        });
-        refreshToggleText();
-      };
-    }
-    var open = feed.classList.contains('history-open');
     rest.forEach(function(card){
       card.style.display = 'none';
       if(!card._historyRow){
@@ -54,23 +41,20 @@
         var heading = clickTarget ? clickTarget.querySelector('h1,h2,h3,h4') : null;
         var row = document.createElement('div');
         row.className = 'history-row';
-        var dateText = dateSpan ? dateSpan.textContent.trim() : '';
-        var titleText = heading ? heading.textContent.trim() : '';
         var dateEl = document.createElement('span');
         dateEl.className = 'history-row-date';
-        dateEl.textContent = dateText;
+        dateEl.textContent = dateSpan ? dateSpan.textContent.trim() : '';
         var titleEl = document.createElement('span');
         titleEl.className = 'history-row-title';
-        titleEl.textContent = titleText;
+        titleEl.textContent = heading ? heading.textContent.trim() : '';
         row.appendChild(dateEl);
         row.appendChild(titleEl);
         row.onclick = function(){ if(clickTarget) clickTarget.click(); };
         feed.insertBefore(row, card);
         card._historyRow = row;
       }
-      card._historyRow.style.display = open ? '' : 'none';
+      card._historyRow.style.display = '';
     });
-    refreshToggleText();
     historyBusy = false;
   }
   function init(){
@@ -87,9 +71,9 @@
     section.insertBefore(feed, player.nextSibling);
     if(createBox) createBox.style.display = 'none';
     var searchWrap = searchInput.closest('.relative');
-    if(searchWrap) section.appendChild(searchWrap);
+    if(searchWrap) searchWrap.style.display = 'none';
     var searchHeader = document.getElementById('search-header');
-    if(searchHeader) section.appendChild(searchHeader);
+    if(searchHeader) searchHeader.style.display = 'none';
     setupHistory(feed);
     new MutationObserver(function(){ setupHistory(feed); }).observe(feed, {childList:true});
     var DATA = null, chapterIndex = 0, playing = false, rate = 1, voice = null;
