@@ -96,6 +96,7 @@
     setupHistory(feed);
     new MutationObserver(function(){ setupHistory(feed); }).observe(feed, {childList:true});
     var DATA = null, chapterIndex = 0, playing = false, rate = 1, voice = null;
+    var FULL_LIST = null, LIST_INDEX = 0;
     var audioEl = new Audio();
     audioEl.preload = 'auto';
     function pickVoice(){
@@ -125,6 +126,13 @@
           ].filter(function(c){return c.text;})
       };
     }
+    async function ensureList(){
+      if(!FULL_LIST){
+        var res = await _db.from('scripture').select('id,title,content,created_at').order('created_at',{ascending:false});
+        FULL_LIST = res.data || [];
+      }
+      return FULL_LIST;
+    }
     async function activateEntry(s){
       var cres = await _db.from('creations').select('creation_type,content').eq('scripture_id', s.id);
       var byType = {};
@@ -137,20 +145,21 @@
       renderChapters();
     }
     async function loadToday(){
-      var res = await _db.from('scripture').select('id,title,content,created_at').order('created_at',{ascending:false}).limit(1);
-      var s = res.data && res.data[0];
+      var list = await ensureList();
+      var s = list[0];
       if(!s){ document.getElementById('lp-status').textContent = '还没有今天的经文'; return; }
+      LIST_INDEX = 0;
       await activateEntry(s);
       document.getElementById('lp-status').textContent = '点击播放，收听今天的经文';
     }
     async function playListIndex(indexInList, btn){
       if(btn) btn.classList.add('loading');
       try{
-        var res = await _db.from('scripture').select('id,title,content,created_at').order('created_at',{ascending:false});
-        var list = res.data || [];
+        var list = await ensureList();
         var s = list[indexInList];
         if(!s) return;
         stop();
+        LIST_INDEX = indexInList;
         await activateEntry(s);
         document.getElementById('listen-player').scrollIntoView({behavior:'smooth', block:'start'});
         play();
@@ -160,6 +169,18 @@
     }
     onRowPlay = function(restIndex, btn){ playListIndex(restIndex+1, btn); };
     onTodayPlay = function(btn){ playListIndex(0, btn); };
+    // 播完当天最后一段之后，自动接着播更早一天的内容，像电台一样一直往下播
+    async function moveToNextDay(){
+      var list = await ensureList();
+      if(LIST_INDEX < list.length-1){
+        LIST_INDEX++;
+        await activateEntry(list[LIST_INDEX]);
+        play();
+      } else {
+        playing=false; updateIcon();
+        document.getElementById('lp-status').textContent='已经是最早的一条记录了';
+      }
+    }
     function renderChapters(){
       var wrap = document.getElementById('lp-chapters');
       wrap.innerHTML = '';
@@ -183,9 +204,12 @@
       playing = true; updateIcon();
       document.getElementById('lp-status').textContent = '正在播放（系统朗读）：'+chapter.label;
     }
-    function advance(){
-      if(DATA && chapterIndex < DATA.chapters.length-1){ chapterIndex++; renderChapters(); play(); }
-      else { playing=false; updateIcon(); document.getElementById('lp-status').textContent='播放完了'; }
+    async function advance(){
+      if(DATA && chapterIndex < DATA.chapters.length-1){
+        chapterIndex++; renderChapters(); play();
+      } else {
+        await moveToNextDay();
+      }
     }
     function play(){
       if(!DATA || !DATA.chapters.length) return;
@@ -212,7 +236,10 @@
     }
     document.getElementById('lp-play').onclick = function(){ if(playing){ stop(); document.getElementById('lp-status').textContent='已暂停'; } else { play(); } };
     document.getElementById('lp-prev').onclick = function(){ stop(); chapterIndex=Math.max(0,chapterIndex-1); renderChapters(); play(); };
-    document.getElementById('lp-next').onclick = function(){ stop(); if(DATA && chapterIndex<DATA.chapters.length-1){ chapterIndex++; renderChapters(); play(); } };
+    document.getElementById('lp-next').onclick = async function(){
+      if(DATA && chapterIndex<DATA.chapters.length-1){ stop(); chapterIndex++; renderChapters(); play(); }
+      else { stop(); await moveToNextDay(); }
+    };
     document.querySelectorAll('#lp-speed button').forEach(function(btn){
       btn.onclick = function(){
         document.querySelectorAll('#lp-speed button').forEach(function(b){b.classList.remove('active');});
