@@ -110,22 +110,38 @@
       return {ref: '', body: content};
     }
     function pad(n){ return n<10 ? '0'+n : ''+n; }
-    // 日期一律按台湾时区（UTC+8）算，不用浏览器本地时区。
-    // 音频文件名 audio/YYYY-MM-DD-N.mp3 是定时任务照推喇奴网站当天显示的日期命名的，
-    // 那是台湾本地日期。按浏览器时区折算 created_at 的话两边会差一天：
-    // 例如任务在澳洲凌晨 1 点（= 台湾前一天 23 点）跑，网站还是前一天、音频叫 08-15，
-    // 但浏览器本地已是 08-16，就会去拿一个不存在或属于别天的 mp3。
-    // 换算成 UTC+8 之后 dateKey 永远跟文件名同步，读者在哪个时区都一样。
-    // 注意：taiwanDate 只能取年月日，不要拿来显示时分秒。
+    // 一条内容"属于哪一天"以 scripture.entry_date 为准——那是推喇奴网站上显示的日期，
+    // 音频文件 audio/YYYY-MM-DD-N.mp3 也是照它命名的。定时任务会提前生成后面几天，
+    // 所以创建时间和内容日期是两回事，不能再用 created_at 当日期。
+    //
+    // 老数据（2026年8月15日加这一列之前）没有 entry_date，只能从 created_at 反推，
+    // 反推固定按台湾时区，不用浏览器本地时区：任务若在澳洲凌晨 1 点（= 台湾前一天 23 点）
+    // 跑，浏览器这边已跨过午夜、台湾还没跨，两边差一天，就会去拿一个不存在的 mp3。
+    // 注意：taiwanDate 的返回值只能取年月日，不要拿来显示时分秒。
     function taiwanDate(iso){
       return new Date(new Date(iso).getTime() + 8*3600*1000);
     }
+    function entryDateParts(s){
+      if(s.entry_date && String(s.entry_date).length>=10){
+        var p = String(s.entry_date).slice(0,10).split('-');
+        return {y:+p[0], m:+p[1], d:+p[2]};
+      }
+      var t = taiwanDate(s.created_at);
+      return {y:t.getUTCFullYear(), m:t.getUTCMonth()+1, d:t.getUTCDate()};
+    }
+    // 还没到的那几天（预生成的）先不显示给读者，按浏览器本地日期判断
+    function isFutureEntry(s){
+      var e = entryDateParts(s), n = new Date();
+      var a = e.y*10000 + e.m*100 + e.d;
+      var b = n.getFullYear()*10000 + (n.getMonth()+1)*100 + n.getDate();
+      return a > b;
+    }
     function buildEntryData(s, byType){
-      var d = taiwanDate(s.created_at);
+      var d = entryDateParts(s);
       var parsed = splitRef(s.content);
       return {
-        date: d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日',
-        dateKey: d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate()),
+        date: d.y+'年'+d.m+'月'+d.d+'日',
+        dateKey: d.y+'-'+pad(d.m)+'-'+pad(d.d),
         title: s.title,
         ref: parsed.ref,
         chapters: [
@@ -138,8 +154,16 @@
     }
     async function ensureList(){
       if(!FULL_LIST){
-        var res = await _db.from('scripture').select('id,title,content,created_at').order('created_at',{ascending:false});
-        FULL_LIST = res.data || [];
+        // 用 select('*') 而不是点名字段：entry_date 这一列万一还没建好，
+        // 显式点名会让 PostgREST 直接返回 400、整个列表打不开；用 * 则只是取不到，
+        // entryDateParts 会自动回退到 created_at 反推。
+        var res = await _db.from('scripture').select('*').order('created_at',{ascending:false});
+        // 排序改按"内容属于哪一天"（预生成之后写入先后 ≠ 内容日期），未来的先滤掉
+        FULL_LIST = (res.data || []).filter(function(s){ return !isFutureEntry(s); })
+          .sort(function(a,b){
+            var x=entryDateParts(a), y=entryDateParts(b);
+            return (y.y*10000+y.m*100+y.d) - (x.y*10000+x.m*100+x.d);
+          });
       }
       return FULL_LIST;
     }
