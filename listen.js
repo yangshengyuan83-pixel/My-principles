@@ -110,12 +110,22 @@
       return {ref: '', body: content};
     }
     function pad(n){ return n<10 ? '0'+n : ''+n; }
+    // 日期一律按台湾时区（UTC+8）算，不用浏览器本地时区。
+    // 音频文件名 audio/YYYY-MM-DD-N.mp3 是定时任务照推喇奴网站当天显示的日期命名的，
+    // 那是台湾本地日期。按浏览器时区折算 created_at 的话两边会差一天：
+    // 例如任务在澳洲凌晨 1 点（= 台湾前一天 23 点）跑，网站还是前一天、音频叫 08-15，
+    // 但浏览器本地已是 08-16，就会去拿一个不存在或属于别天的 mp3。
+    // 换算成 UTC+8 之后 dateKey 永远跟文件名同步，读者在哪个时区都一样。
+    // 注意：taiwanDate 只能取年月日，不要拿来显示时分秒。
+    function taiwanDate(iso){
+      return new Date(new Date(iso).getTime() + 8*3600*1000);
+    }
     function buildEntryData(s, byType){
-      var d = new Date(s.created_at);
+      var d = taiwanDate(s.created_at);
       var parsed = splitRef(s.content);
       return {
-        date: d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日',
-        dateKey: d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()),
+        date: d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日',
+        dateKey: d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate()),
         title: s.title,
         ref: parsed.ref,
         chapters: [
