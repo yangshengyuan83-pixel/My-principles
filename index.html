@@ -674,8 +674,14 @@
         const SUPABASE_URL = 'https://gveloqtqysytkibjbnaw.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2ZWxvcXRxeXN5dGtpYmpibmF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNDg0NjksImV4cCI6MjA4NjYyNDQ2OX0.5RNE2PZ4XIGLC18amXtgbPqRchxgIdO4ANv95yDZWM4';
         const _db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        // (注: CURRENT_USER 变量已用 window.CURRENT_USER_ID 替代，但在您的特定代码中如果某些表还需要旧字段，请留意)
-        const CURRENT_USER = "元"; 
+        // ⚠️ 这里原本是 `const CURRENT_USER = "元"` —— 一个写死的字符串。
+        // user_tasks / project_cornerstones / user_inquiries 三张表的读写全按它过滤，
+        // 后果是：不管谁登录，看到的清单/基石/提问都是同一份（都是"元"的）。
+        // 2026-09-14 改成读真实登录用户的 ID。
+        // 存量的 22 条数据已经用 SQL 从 "元" 迁到 Yuan 的 UUID 下面了。
+        function currentUserId() {
+            return window.CURRENT_USER_ID || null;
+        }
 
         function formatSimpleDate(iso) {
             if (!iso) return '--/--';
@@ -695,7 +701,7 @@
             const { data: sData } = await _db.from('scripture').select('*').order('created_at', { ascending: false });
             _scriptures = sData || [];
 
-            const { data: iData } = await _db.from('user_inquiries').select('*, scripture(title)').eq('user_id', CURRENT_USER).order('created_at', { ascending: false });
+            const { data: iData } = await _db.from('user_inquiries').select('*, scripture(title)').eq('user_id', currentUserId()).order('created_at', { ascending: false });
             _inquiries = iData || [];
 
             const collapsedDate = document.getElementById('island-date-collapsed');
@@ -1101,10 +1107,10 @@ async function loadMyCreations(container) {
         async function deleteInquiryDirectly(q, e) {
             e.stopPropagation(); // 绝对拦截：阻止点击事件穿透到卡片底部的“打开详情”逻辑
             if (confirm("确定彻底删除这个问题及其所有关联记录吗？")) {
-                await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', CURRENT_USER);
+                await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', currentUserId());
                 
                 // 静默拉取最新数据，避免页面闪烁，并留在当前面板
-                const { data: iData } = await _db.from('user_inquiries').select('*, scripture(title)').eq('user_id', CURRENT_USER).order('created_at', { ascending: false });
+                const { data: iData } = await _db.from('user_inquiries').select('*, scripture(title)').eq('user_id', currentUserId()).order('created_at', { ascending: false });
                 if (iData) {
                     _inquiries = iData;
                     // 判断当前是停留在公开还是私有页面，原位重绘
@@ -1117,7 +1123,7 @@ async function loadMyCreations(container) {
         // 下方是您原有的代码，不用动
 
         async function updateInquiryPrivacy(question, isPub) {
-            await _db.from('user_inquiries').update({ is_public: isPub }).eq('question', question).eq('user_id', CURRENT_USER);
+            await _db.from('user_inquiries').update({ is_public: isPub }).eq('question', question).eq('user_id', currentUserId());
             bootstrap();
         }
 
@@ -1127,7 +1133,7 @@ async function loadMyCreations(container) {
                 btn.innerText = "处理中...";
             }
 
-            const { error } = await _db.from('user_inquiries').insert([{ question: q, scripture_id: sid, user_id: CURRENT_USER, is_public: false }]);
+            const { error } = await _db.from('user_inquiries').insert([{ question: q, scripture_id: sid, user_id: currentUserId(), is_public: false }]);
             
             if (error) {
                 alert("归档异常: " + error.message);
@@ -1147,14 +1153,14 @@ async function loadMyCreations(container) {
             // 这样既不会引发页面闪烁打断阅读，又能保证下次点击灵动岛时，最新数据已经准备就绪！
             const { data: iData } = await _db.from('user_inquiries')
                                         .select('*, scripture(title)')
-                                        .eq('user_id', CURRENT_USER)
+                                        .eq('user_id', currentUserId())
                                         .order('created_at', { ascending: false });
             if (iData) _inquiries = iData;
         }
 
         async function deleteInquiryFromModal(q) {
             if (confirm("确定彻底删除这个问题及其所有关联记录吗？")) {
-                await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', CURRENT_USER);
+                await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', currentUserId());
                 closeInquiryDetail();
                 bootstrap();
             }
@@ -1436,7 +1442,7 @@ async function loadMyCreations(container) {
         }
 
         async function refreshTasks() {
-            const { data } = await _db.from('user_tasks').select('*').eq('user_id', CURRENT_USER).order('created_at', { ascending: false });
+            const { data } = await _db.from('user_tasks').select('*').eq('user_id', currentUserId()).order('created_at', { ascending: false });
             const allTasks = data || [];
             const activeTasks = allTasks.filter(t => !t.is_completed);
             const completedTasks = allTasks.filter(t => t.is_completed);
@@ -1470,7 +1476,7 @@ async function loadMyCreations(container) {
 
         async function handleTodoKey(e) {
             if (e.key === 'Enter' && e.target.value.trim()) {
-                await _db.from('user_tasks').insert([{ content: e.target.value.trim(), user_id: CURRENT_USER }]);
+                await _db.from('user_tasks').insert([{ content: e.target.value.trim(), user_id: currentUserId() }]);
                 e.target.value = ""; refreshTasks();
             }
         }
@@ -1487,7 +1493,7 @@ async function loadMyCreations(container) {
         }
 
         async function refreshCornerstones() {
-            const { data } = await _db.from('project_cornerstones').select('*').eq('user_id', CURRENT_USER).order('created_at', { ascending: true });
+            const { data } = await _db.from('project_cornerstones').select('*').eq('user_id', currentUserId()).order('created_at', { ascending: true });
             _cornerstones = data || [];
             document.getElementById('sidebar-cornerstones-list').innerHTML = _cornerstones.map(c => `
                 <div onclick="openCornerstoneModal('${c.id}')" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer group relative">
@@ -1529,7 +1535,7 @@ async function loadMyCreations(container) {
             if (!content) return alert("基石内容不能为空！");
             btn.disabled = true;
             if (id) await _db.from('project_cornerstones').update({ title, content }).eq('id', id);
-            else await _db.from('project_cornerstones').insert([{ title, content, user_id: CURRENT_USER }]);
+            else await _db.from('project_cornerstones').insert([{ title, content, user_id: currentUserId() }]);
             btn.disabled = false; closeCornerstoneModal(); refreshCornerstones();
         }
 
