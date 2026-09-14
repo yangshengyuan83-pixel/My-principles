@@ -488,11 +488,25 @@
         let _isLoginMode = true;
         const GENESIS_CODE = "ADMIN001"; 
 
-        // 修补3：独立干净的退出登录函数
+        // 退出登录
+        //
+        // ⚠️ 这里必须容错。原来的写法是 `await signOut(); reload();`——
+        // signOut() 一旦抛错（会话已失效、网络断了、第三方登录的 token 过期等），
+        // 后面的 reload 就永远不会执行，界面上表现为"点了没反应"，而且不报任何错。
+        // 现在改成：不管服务端退没退成功，本地一定清掉、页面一定刷新。
         async function executeLogout() {
-            if (confirm("确定要退出当前账号吗？")) {
-                await _db.auth.signOut(); 
-                window.location.reload(); 
+            if (!confirm("确定要退出当前账号吗？")) return;
+            try {
+                await _db.auth.signOut();
+            } catch (e) {
+                console.error('服务端退出失败，改为只清本地会话：', e);
+                try {
+                    await _db.auth.signOut({ scope: 'local' });
+                } catch (e2) {
+                    console.error('本地清除也失败，直接硬刷新：', e2);
+                }
+            } finally {
+                window.location.reload();
             }
         }
 
