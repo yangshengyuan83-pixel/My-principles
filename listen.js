@@ -10,11 +10,12 @@
     el.innerHTML = '<div class="lp-date" id="lp-date">加载中...</div><div class="lp-title" id="lp-title"></div><div class="lp-ref" id="lp-ref"></div><div class="lp-chapters" id="lp-chapters"></div><div class="lp-chapter-label" id="lp-chapter-label"></div><div class="lp-controls"><button id="lp-prev" aria-label="上一段"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button><button class="lp-play" id="lp-play" aria-label="播放"><svg id="lp-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button><button id="lp-next" aria-label="下一段"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg></button></div><div class="lp-speed" id="lp-speed"><button data-speed="0.85">0.85x</button><button data-speed="1" class="active">1x</button><button data-speed="1.15">1.15x</button></div><div class="lp-status" id="lp-status">加载今天的经文中...</div>';
     return el;
   }
+  // 2026-09-14：左右两栏（今日灵感与清单 / 项目基石）改回显示。
+  // 原先这里把它们 display:none 藏掉了，结果排查数据问题时非常误导——
+  // 数据查得到、渲染函数也跑了，但界面上什么都看不见。
+  // 等做「建议箱」和「公开说明」改造时会重新设计这两栏的入口，那时再动。
   function hideSidebars(){
-    var nav = document.querySelector('nav.w-72');
-    var aside = document.querySelector('aside.w-72');
-    if(nav) nav.style.display = 'none';
-    if(aside) aside.style.display = 'none';
+    /* 已停用：不再隐藏侧边栏 */
   }
   var historyBusy = false;
   var onRowPlay = null; // set inside init once player helpers exist
