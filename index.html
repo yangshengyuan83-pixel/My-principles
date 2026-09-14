@@ -116,10 +116,26 @@
                 <p class="text-[10px] text-slate-500 tracking-widest uppercase letter-spacing-2">全民知识共创社区</p>
             </div>
 
-            <div class="bg-[#111] p-8 rounded-[30px] border border-white/5 shadow-2xl flex flex-col gap-5 relative overflow-hidden">
+            <div id="auth-form-box" class="bg-[#111] p-8 rounded-[30px] border border-white/5 shadow-2xl flex flex-col gap-5 relative overflow-hidden">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500/50 to-transparent"></div>
-                
+
                 <h2 id="auth-title" class="text-xs font-black text-slate-400 tracking-widest uppercase mb-2 text-center">系统准入核验</h2>
+
+                <!-- ===== 第三方登录（推荐路径）===== -->
+                <!-- 网页版用 OAuth 网页流程是正确做法；只有 App 端因为跳不回来才必须用原生登录 -->
+                <div id="oauth-block" class="flex flex-col gap-3">
+                    <button onclick="signInWithProvider('google')" class="w-full bg-white text-black font-bold text-xs tracking-widest py-4 rounded-xl hover:bg-slate-200 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                        <span class="text-base font-black text-[#4285F4]">G</span> 使用 Google 继续
+                    </button>
+                    <button onclick="signInWithProvider('apple')" class="w-full bg-black text-white font-bold text-xs tracking-widest py-4 rounded-xl border border-white/20 hover:bg-[#1a1a1a] transition-transform active:scale-95">
+                         使用 Apple 继续
+                    </button>
+                    <div class="flex items-center gap-3 my-1">
+                        <div class="h-px bg-white/10 flex-1"></div>
+                        <span class="text-[10px] text-slate-600 tracking-widest">或用邮箱</span>
+                        <div class="h-px bg-white/10 flex-1"></div>
+                    </div>
+                </div>
 
                 <!-- 修补1：注入了 autocomplete，解决密码管理器识别问题 -->
                 <input type="email" id="auth-email" autocomplete="username" placeholder="邮箱地址" class="w-full bg-[#1a1a1a] text-white text-sm px-5 py-4 rounded-xl outline-none border border-white/5 focus:border-purple-500/50 transition-all placeholder-slate-600 font-medium">
@@ -509,6 +525,76 @@
             return Math.random().toString(36).substring(2, 8).toUpperCase();
         }
 
+        // ================= 第三方登录（Google / Apple）=================
+        //
+        // 网页版用 signInWithOAuth 这套网页跳转流程是**正确**的做法。
+        // ⚠️ 不要照搬 App 端的原生登录：App 之所以必须用原生，是因为 iOS 上
+        // 网页授权完跳不回 App。浏览器里没有这个问题，跳回来就是同一个页面。
+        async function signInWithProvider(provider) {
+            const errorMsg = document.getElementById('auth-error-msg');
+            errorMsg.innerText = "";
+            try {
+                // 授权完回到当前页面（不带查询参数，免得把 code 留在地址栏里）
+                const { error } = await _db.auth.signInWithOAuth({
+                    provider,
+                    options: { redirectTo: window.location.origin + window.location.pathname }
+                });
+                if (error) throw error;
+                // 正常情况下浏览器会跳走，下面的代码不会执行
+            } catch (err) {
+                errorMsg.innerText = err.message || "登录失败，请重试";
+            }
+        }
+
+        // 查这个登录用户有没有社区档案。
+        // 登录 ≠ 社区成员：Google/Apple 登录只证明"他是谁"，
+        // 有没有资格在社区里发东西，看的是 profiles 里有没有他。
+        async function hasProfile(userId) {
+            const { data, error } = await _db
+                .from('profiles')
+                .select('id')
+                .eq('id', userId)
+                .maybeSingle();
+            if (error) throw error;
+            return !!data;
+        }
+
+
+
+
+        // 建档这段逻辑，邮箱注册 / 第三方登录+邀请码 / 自助建档 三条路都会用到，
+        // 抽出来避免几份实现日后走偏。
+        // inviteCode 传 null 表示自助建档（没有邀请人，状态 pending）
+        async function createProfileFor(user, inviteCode) {
+            let inviterId = null;
+
+            if (inviteCode && inviteCode !== GENESIS_CODE) {
+                const { data: inviterData, error: inviteErr } = await _db
+                    .from('profiles')
+                    .select('id')
+                    .eq('my_invite_code', inviteCode)
+                    .single();
+                if (inviteErr || !inviterData) throw new Error("邀请凭证无效或已过期");
+                inviterId = inviterData.id;
+            }
+
+            const isGenesis = inviteCode === GENESIS_CODE;
+
+            const newProfile = {
+                id: user.id,
+                nickname: (user.email || 'user').split('@')[0],
+                my_invite_code: generateInviteCode(),
+                inviter_id: inviterId,
+                // 只有创世码直接激活；有邀请人的和自助建档的，都是待确认
+                status: isGenesis ? 'active' : 'pending',
+                role: isGenesis ? 'VIP' : 'none'
+            };
+
+            const { error: profileErr } = await _db.from('profiles').insert([newProfile]);
+            if (profileErr) throw profileErr;
+            return newProfile;
+        }
+
         // 修补4：修复了括号报错的 executeAuth 函数
         // 3. 核心通讯执行器 (向 Supabase 验证身份)
         async function executeAuth() {
@@ -538,36 +624,15 @@
                 } else {
                     // ================= 注册逻辑 =================
                     if (!inviteCode) throw new Error("必须提供有效的邀请凭证");
-                    let inviterId = null;
-
-                    if (inviteCode !== GENESIS_CODE) {
-                        const { data: inviterData, error: inviteErr } = await _db
-                            .from('profiles')
-                            .select('id')
-                            .eq('my_invite_code', inviteCode)
-                            .single();
-                            
-                        if (inviteErr || !inviterData) throw new Error("邀请凭证无效或已过期");
-                        inviterId = inviterData.id;
-                    }
 
                     const { data: authData, error: authErr } = await _db.auth.signUp({ email, password });
                     if (authErr) throw authErr;
 
-                    const newProfile = {
-                        id: authData.user.id,
-                        nickname: email.split('@')[0], 
-                        my_invite_code: generateInviteCode(),
-                        inviter_id: inviterId,
-                        status: inviteCode === GENESIS_CODE ? 'active' : 'pending', 
-                        role: inviteCode === GENESIS_CODE ? 'VIP' : 'none'
-                    };
-
-                    const { error: profileErr } = await _db.from('profiles').insert([newProfile]);
-                    if (profileErr) throw profileErr;
+                    // 建档逻辑跟第三方登录那条路共用同一个函数，避免两份实现日后走偏
+                    await createProfileFor(authData.user, inviteCode);
 
                     alert(inviteCode === GENESIS_CODE ? "创世身份已确立！" : "注册成功！请静候牧者审核。");
-                    toggleAuthMode(); 
+                    toggleAuthMode();
                 }
             } catch (err) {
                 errorMsg.innerText = err.message || "核验失败，请重试";
@@ -1467,6 +1532,20 @@ async function loadMyCreations(container) {
             const { data: { session } } = await _db.auth.getSession();
 
             if (session && session.user) {
+                // 登录 = 建档，是一步，不是两步。
+                // 第一次用 Google/Apple 进来的人还没有 profiles 记录，
+                // 这里**自动**给他建一份（状态 pending、角色 none），然后直接放进首页。
+                // 他能看，但点赞/收藏/发布这些要等身份被确认之后才开放。
+                // ⚠️ 不要在这里加"填邀请码才能进"的关卡——设计上没有这一步，
+                //    邀请码是进去之后用来提升身份的，不是门槛。
+                try {
+                    if (!(await hasProfile(session.user.id))) {
+                        await createProfileFor(session.user, null);
+                    }
+                } catch (e) {
+                    console.error('自动建档失败', e);
+                }
+
                 closeAuthModal();
                 await initializeSystem(session.user.id);
             } else {
