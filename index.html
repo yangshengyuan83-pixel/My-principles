@@ -1782,4 +1782,14 @@ async function loadMyCreations(container) {
     </script>
 </body>
 </html>
-<script src="listen.js"></script>
+<!-- 2026-09-16：停用 listen.js。
+     它做两件事：注入网页版播放器 + 把搜索框/发布入口/左右侧边栏藏起来。
+
+     产品上决定：**听归 App，读和写归网页版**（跟 06_产品决策记录 里
+     2026-08-06 那份「App 和网页版怎么分工」一致）。网页版不再需要播放器，
+     而被它藏起来的搜索框和发布入口正是网页版的主入口，必须放出来。
+
+     文件保留没删，万一要恢复，把下面这行的注释去掉即可：
+     <script src="listen.js"></script>
+-->
+
