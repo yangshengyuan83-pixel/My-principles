@@ -408,10 +408,17 @@
 
             <!-- 提交区 -->
             <div class="bg-slate-50 rounded-2xl p-5 mb-6 border border-slate-100">
-                <div class="flex gap-2 mb-3">
-                    <button id="sg-type-suggestion" onclick="setSuggestionType('suggestion')" class="px-4 py-2 rounded-lg text-[11px] font-black transition-all bg-black text-white">建议</button>
-                    <button id="sg-type-problem" onclick="setSuggestionType('problem')" class="px-4 py-2 rounded-lg text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200">遇到问题</button>
-                    <span id="sg-type-hint" class="text-[10px] text-slate-400 self-center ml-2">建议会公开，大家可以附议</span>
+                <!-- 两类入口改成上下两行，每行自带说明。
+                     并排 + 一句共用提示的写法试过，说明跟着选中项变，反而看不清。 -->
+                <div class="space-y-2 mb-4">
+                    <button id="sg-type-suggestion" onclick="setSuggestionType('suggestion')" class="w-full text-left px-4 py-3 rounded-xl transition-all flex items-baseline gap-3 bg-purple-600">
+                        <span class="text-[12px] font-black text-white flex-shrink-0">建议</span>
+                        <span class="text-[11px] text-white/70">我想要某个功能，或者觉得哪里可以更好。<b class="text-white">会公开出来，其他人可以附议。</b></span>
+                    </button>
+                    <button id="sg-type-problem" onclick="setSuggestionType('problem')" class="w-full text-left px-4 py-3 rounded-xl transition-all flex items-baseline gap-3 bg-white border border-slate-200 hover:border-red-200">
+                        <span class="text-[12px] font-black text-red-500 flex-shrink-0">遇到问题</span>
+                        <span class="text-[11px] text-slate-400">哪里坏了、打不开，或者看不明白。<b class="text-slate-600">只有你和我们看得到。</b></span>
+                    </button>
                 </div>
                 <textarea id="sg-input" placeholder="想要什么功能？或者哪里不好用？" class="w-full bg-white p-4 rounded-xl outline-none text-[14px] text-slate-700 min-h-[90px] resize-none leading-relaxed border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
                 <div class="flex justify-end mt-3">
@@ -1528,16 +1535,35 @@ async function loadMyCreations(container) {
             setTimeout(() => { document.getElementById('suggestion-modal').classList.add('hidden'); }, 300);
         }
 
+        // 两种类型各用自己的颜色，跟列表里的标签一致：建议=紫，问题=红。
+        // 选中时整行铺色，没选中时是白底 + 彩色标题，一眼能看出现在选的是哪个。
         function setSuggestionType(type) {
             _sgType = type;
-            const on  = 'px-4 py-2 rounded-lg text-[11px] font-black transition-all bg-black text-white';
-            const off = 'px-4 py-2 rounded-lg text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200';
-            document.getElementById('sg-type-suggestion').className = type === 'suggestion' ? on : off;
-            document.getElementById('sg-type-problem').className    = type === 'problem'    ? on : off;
-            document.getElementById('sg-type-hint').innerText =
-                type === 'suggestion' ? '建议会公开，大家可以附议' : '问题反馈只有你和我们看得到';
+            const base = 'w-full text-left px-4 py-3 rounded-xl transition-all flex items-baseline gap-3 ';
+
+            const sBtn = document.getElementById('sg-type-suggestion');
+            const pBtn = document.getElementById('sg-type-problem');
+
+            const sOn = type === 'suggestion';
+            const pOn = type === 'problem';
+
+            sBtn.className = base + (sOn ? 'bg-purple-600' : 'bg-white border border-slate-200 hover:border-purple-200');
+            pBtn.className = base + (pOn ? 'bg-red-500'    : 'bg-white border border-slate-200 hover:border-red-200');
+
+            paintTypeRow(sBtn, sOn, 'text-purple-600');
+            paintTypeRow(pBtn, pOn, 'text-red-500');
+
             document.getElementById('sg-input').placeholder =
                 type === 'suggestion' ? '想要什么功能？或者哪里可以更好？' : '哪里坏了、打不开，或者看不明白？';
+        }
+
+        // 选中时整行是彩色底，里面的字必须换成白色，否则彩底彩字看不清
+        function paintTypeRow(btn, selected, accentClass) {
+            const [title, desc] = btn.children;
+            title.className = 'text-[12px] font-black flex-shrink-0 ' + (selected ? 'text-white' : accentClass);
+            desc.className  = 'text-[11px] ' + (selected ? 'text-white/70' : 'text-slate-400');
+            const b = desc.querySelector('b');
+            if (b) b.className = selected ? 'text-white' : 'text-slate-600';
         }
 
         function switchSuggestionTab(tab, focusId = null) {
@@ -1618,11 +1644,7 @@ async function loadMyCreations(container) {
                             <button onclick="toggleVote('${r.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">
                                 ${voted ? '✓ 已附议' : '+ 我也想要'} ${n > 0 ? n : ''}
                             </button>` : ''}
-                        ${isMine ? `
-                            <button onclick="togglePublic('${r.id}', ${r.is_public})" class="text-[11px] font-bold text-slate-400 hover:text-black transition-colors">
-                                ${r.is_public ? '设为仅自己可见' : '公开出来'}
-                            </button>
-                            <button onclick="deleteSuggestion('${r.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors ml-auto">删除</button>` : ''}
+                        ${isMine ? `<button onclick="deleteSuggestion('${r.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors ml-auto">删除</button>` : ''}
                     </div>
                 </div>`;
             }).join('') || `<div class="text-[12px] text-slate-400 italic py-8 text-center">${_sgTab === 'mine' ? '你还没有提过' : '还没有人提过建议'}</div>`;
@@ -1644,13 +1666,6 @@ async function loadMyCreations(container) {
             } catch (e) { console.error('附议失败', e); }
         }
 
-        // 自己那条的公开/私有开关。
-        // 起因：改造时把 Yuan 原有的 15 条全标成了私有，但其中有几条本来就是真的产品建议，
-        // 不该藏起来。与其用 SQL 猜哪些该公开，不如把开关交给用户——这本来也是需要的功能。
-        async function togglePublic(id, currentlyPublic) {
-            await _db.from('user_tasks').update({ is_public: !currentlyPublic }).eq('id', id);
-            refreshSuggestions();
-        }
 
         async function deleteSuggestion(id) {
             if (!confirm('确定删除这一条吗？')) return;
