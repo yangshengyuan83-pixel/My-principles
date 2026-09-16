@@ -1503,13 +1503,23 @@ async function loadMyCreations(container) {
             done:      { label: '已完成', cls: 'bg-black text-white' }
         };
 
-        function openSuggestionBox(tab = 'mine') {
+        // focusId：从侧边栏点进来时，传具体那一条的 id，打开后滚过去并高亮一下，
+        // 否则用户点了一条却落在列表顶部，不知道自己点的是哪个
+        function openSuggestionBox(tab = 'mine', focusId = null) {
             document.getElementById('suggestion-modal').classList.remove('hidden');
             setTimeout(() => {
                 document.getElementById('suggestion-modal').classList.remove('opacity-0');
                 document.getElementById('suggestion-modal-box').classList.remove('scale-95');
             }, 10);
-            switchSuggestionTab(tab);
+            switchSuggestionTab(tab, focusId);
+        }
+
+        function focusSuggestionCard(id) {
+            const el = document.getElementById('sg-card-' + id);
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-purple-400');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-purple-400'), 1600);
         }
 
         function closeSuggestionBox() {
@@ -1530,13 +1540,13 @@ async function loadMyCreations(container) {
                 type === 'suggestion' ? '想要什么功能？或者哪里可以更好？' : '哪里坏了、打不开，或者看不明白？';
         }
 
-        function switchSuggestionTab(tab) {
+        function switchSuggestionTab(tab, focusId = null) {
             _sgTab = tab;
             const on  = 'text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all';
             const off = 'text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all';
             document.getElementById('sg-tab-mine').className   = tab === 'mine'   ? on : off;
             document.getElementById('sg-tab-public').className = tab === 'public' ? on : off;
-            refreshSuggestions();
+            refreshSuggestions(focusId);
         }
 
         async function submitSuggestion(btn) {
@@ -1566,7 +1576,7 @@ async function loadMyCreations(container) {
             }
         }
 
-        async function refreshSuggestions() {
+        async function refreshSuggestions(focusId = null) {
             const me = currentUserId();
             let query = _db.from('user_tasks').select('*').order('created_at', { ascending: false });
             // 「大家提的」只看公开的建议，不含问题反馈；「我提的」两类都看
@@ -1592,7 +1602,7 @@ async function loadMyCreations(container) {
                 const voted = _sgVotedIds.has(r.id);
                 const isMine = r.user_id === me;
                 return `
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-colors">
+                <div id="sg-card-${r.id}" class="bg-white border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-all">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="text-[9px] font-black px-2 py-1 rounded ${r.type === 'problem' ? 'bg-red-50 text-red-500' : 'bg-purple-50 text-purple-500'}">
                             ${r.type === 'problem' ? '问题' : '建议'}
@@ -1608,11 +1618,16 @@ async function loadMyCreations(container) {
                             <button onclick="toggleVote('${r.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">
                                 ${voted ? '✓ 已附议' : '+ 我也想要'} ${n > 0 ? n : ''}
                             </button>` : ''}
-                        ${isMine ? `<button onclick="deleteSuggestion('${r.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors ml-auto">删除</button>` : ''}
+                        ${isMine ? `
+                            <button onclick="togglePublic('${r.id}', ${r.is_public})" class="text-[11px] font-bold text-slate-400 hover:text-black transition-colors">
+                                ${r.is_public ? '设为仅自己可见' : '公开出来'}
+                            </button>
+                            <button onclick="deleteSuggestion('${r.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors ml-auto">删除</button>` : ''}
                     </div>
                 </div>`;
             }).join('') || `<div class="text-[12px] text-slate-400 italic py-8 text-center">${_sgTab === 'mine' ? '你还没有提过' : '还没有人提过建议'}</div>`;
 
+            if (focusId) setTimeout(() => focusSuggestionCard(focusId), 120);
             refreshSidebarSuggestions();
         }
 
@@ -1629,6 +1644,14 @@ async function loadMyCreations(container) {
             } catch (e) { console.error('附议失败', e); }
         }
 
+        // 自己那条的公开/私有开关。
+        // 起因：改造时把 Yuan 原有的 15 条全标成了私有，但其中有几条本来就是真的产品建议，
+        // 不该藏起来。与其用 SQL 猜哪些该公开，不如把开关交给用户——这本来也是需要的功能。
+        async function togglePublic(id, currentlyPublic) {
+            await _db.from('user_tasks').update({ is_public: !currentlyPublic }).eq('id', id);
+            refreshSuggestions();
+        }
+
         async function deleteSuggestion(id) {
             if (!confirm('确定删除这一条吗？')) return;
             await _db.from('user_tasks').delete().eq('id', id);
@@ -1641,11 +1664,17 @@ async function loadMyCreations(container) {
                 .eq('user_id', currentUserId())
                 .order('created_at', { ascending: false }).limit(5);
             const rows = data || [];
+            // 侧边栏只有 288px，分成两个小节会浪费掉两行标题的空间。
+            // 改成每条前面带一个类型点：紫色=建议，红色=问题。一眼能分辨，不占地方。
             document.getElementById('sidebar-todo-list').innerHTML = rows.map(r => {
                 const st = SG_STATUS[r.status] || SG_STATUS.received;
-                return `<div class="mb-3 cursor-pointer group" onclick="openSuggestionBox('mine')">
-                    <div class="text-[11px] text-slate-600 group-hover:text-black transition-colors leading-snug line-clamp-2">${r.content}</div>
-                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded ${st.cls} inline-block mt-1">${st.label}</span>
+                const dot = r.type === 'problem' ? 'bg-red-400' : 'bg-purple-400';
+                return `<div class="mb-3 cursor-pointer group" onclick="openSuggestionBox('mine', '${r.id}')">
+                    <div class="flex gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full ${dot} flex-shrink-0 mt-1.5"></span>
+                        <div class="text-[11px] text-slate-600 group-hover:text-black transition-colors leading-snug line-clamp-2">${r.content}</div>
+                    </div>
+                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded ${st.cls} inline-block mt-1 ml-3.5">${st.label}</span>
                 </div>`;
             }).join('') || '<div class="text-[10px] text-slate-400 italic pl-1">你还没有提过建议</div>';
         }
