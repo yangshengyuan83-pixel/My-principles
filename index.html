@@ -340,24 +340,38 @@
                 </div>
             </div>
 
-            <!-- 送出之后，把他写下的话显示在这里（输入框会清空） -->
-            <div id="search-header" class="hidden mb-10">
-                <div class="flex justify-between items-start gap-8 border-b border-slate-100 pb-6">
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">你写下的</div>
-                        <div id="search-keyword-display" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
-                    </div>
-                    <button onclick="exitSearchMode()" class="text-[10px] font-black text-slate-400 hover:text-black flex-shrink-0 whitespace-nowrap">✕ 清除</button>
-                </div>
-            </div>
-
-            <!-- AI 回应区。样式跟经文卡片保持一致：白底、同样的圆角和字号 -->
+            <!-- 你写下的话 + AI 的回应，放在同一个框里。
+                 样式跟经文卡片一致：白底、45px 圆角、16px 正文。 -->
             <div id="ai-answer-box" class="hidden mb-14">
                 <div class="bg-white border border-slate-100 rounded-[45px] px-10 py-10">
+
+                    <div class="flex justify-between items-start gap-8 mb-3">
+                        <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase">你写下的</div>
+                        <button onclick="exitSearchMode()" class="text-[10px] font-black text-slate-400 hover:text-black flex-shrink-0 whitespace-nowrap">✕ 清除</button>
+                    </div>
+                    <div id="search-keyword-display" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
+
+                    <div class="border-t border-slate-100 my-8"></div>
+
                     <div id="ai-answer-loading" class="hidden text-slate-400 text-[16px]">
                         正在为你寻找…
                     </div>
                     <div id="ai-answer-text" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
+
+                    <!-- 收藏那一行。没登录或还没出结果时整行隐藏。 -->
+                    <div id="ai-answer-actions" class="hidden mt-10 pt-6 border-t border-slate-100 flex items-center justify-between gap-6 flex-wrap">
+                        <button id="btn-save-inquiry" onclick="saveThisAnswer()"
+                            class="text-[13px] font-black bg-black text-white px-7 py-3 rounded-full hover:bg-slate-800 transition-all">
+                            收藏问题和回应
+                        </button>
+                        <div class="flex items-center gap-2">
+                            <button id="vis-private" onclick="setAnswerVisibility(false)"
+                                class="text-[12px] font-bold px-5 py-2.5 rounded-full border border-black bg-black text-white transition-all">私人收藏</button>
+                            <button id="vis-public" onclick="setAnswerVisibility(true)"
+                                class="text-[12px] font-bold px-5 py-2.5 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-black transition-all">公开展示</button>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="mt-10 mb-2 text-[10px] font-black text-slate-400 tracking-widest uppercase">相关的经文</div>
             </div>
@@ -378,13 +392,13 @@
     </aside>
 
     <!-- ================= 活动聚合弹窗 ================= -->
-    <div id="activity-modal" class="modal-overlay fixed inset-0 bg-black/80 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
-        <div id="activity-modal-box" class="modal-box bg-[#111] w-full max-w-4xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border border-white/10 overflow-hidden flex flex-col max-h-[85vh]">
+    <div id="activity-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="activity-modal-box" class="modal-box bg-white w-full max-w-4xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-start mb-6">
-                <h2 class="text-3xl font-black italic tracking-tighter text-white pr-8" id="activity-modal-title">我的创作</h2>
-                <button onclick="closeActivityModal()" class="text-slate-500 hover:text-white font-black text-xl transition-colors">✕</button>
+                <h2 class="text-2xl font-black tracking-tight text-black pr-8" id="activity-modal-title">我的创作</h2>
+                <button onclick="closeActivityModal()" class="text-slate-400 hover:text-black font-black text-xl transition-colors">✕</button>
             </div>
-            <div class="flex-1 overflow-y-auto custom-scroll-dark pr-2">
+            <div class="flex-1 overflow-y-auto custom-scroll pr-2">
                 <div id="activity-modal-content" class="space-y-4"></div>
             </div>
         </div>
@@ -467,37 +481,43 @@
     </div>
 
     <!-- ================= 关联经文与删除弹窗 ================= -->
-    <div id="inquiry-modal" class="modal-overlay fixed inset-0 bg-black/80 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
-        <div id="inquiry-modal-box" class="modal-box bg-[#111] w-full max-w-4xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border border-white/10 overflow-hidden flex flex-col max-h-[85vh]">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h2 class="text-3xl font-black italic tracking-tighter text-white pr-8 mb-2" id="inquiry-modal-title"></h2>
-                    <button id="btn-delete-inquiry" class="text-[10px] font-black tracking-widest text-red-500/60 hover:text-red-500 transition-colors uppercase cursor-pointer">✕ 删除此问题</button>
-                </div>
-                <button onclick="closeInquiryDetail()" class="text-slate-500 hover:text-white font-black text-xl transition-colors">✕</button>
+    <div id="inquiry-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="inquiry-modal-box" class="modal-box bg-white w-full max-w-4xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-start gap-8 mb-6">
+                <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase">你写下的</div>
+                <button onclick="closeInquiryDetail()" class="text-slate-400 hover:text-black font-black text-xl transition-colors flex-shrink-0">✕</button>
             </div>
-            <h3 class="text-[10px] font-black text-slate-500 tracking-widest uppercase mb-4 mt-2 border-t border-white/10 pt-4">该问题关联的经文</h3>
-            <div class="flex-1 overflow-y-auto custom-scroll-dark pr-2">
+            <div class="flex-1 overflow-y-auto custom-scroll pr-2">
+                <div id="inquiry-modal-title" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
+
+                <!-- 当时读到的那段回应。没有就整块隐藏（老的收藏没存这个） -->
+                <div id="inquiry-modal-answer-wrap" class="hidden mt-8 pt-8 border-t border-slate-100">
+                    <div id="inquiry-modal-answer" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
+                </div>
+
+                <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-4 mt-10 border-t border-slate-100 pt-8">相关的经文</h3>
                 <div id="inquiry-modal-content" class="space-y-4"></div>
+
+                <button id="btn-delete-inquiry" class="text-[10px] font-black tracking-widest text-red-300 hover:text-red-500 transition-colors uppercase cursor-pointer mt-8">✕ 删除此收藏</button>
             </div>
         </div>
     </div>
 
     <!-- ================= 身份选择专属弹窗 ================= -->
-    <div id="role-modal" class="modal-overlay fixed inset-0 bg-black/80 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
-        <div id="role-modal-box" class="modal-box bg-[#111] w-full max-w-sm rounded-3xl shadow-2xl p-8 scale-95 border border-white/10 flex flex-col gap-4">
+    <div id="role-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="role-modal-box" class="modal-box bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 scale-95 border border-slate-100 flex flex-col gap-4">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="text-sm font-black text-slate-400 tracking-widest uppercase">请选择您的教会身份</h3>
-                <button onclick="closeRoleSelector()" class="text-slate-500 hover:text-white font-black text-lg transition-colors">✕</button>
+                <button onclick="closeRoleSelector()" class="text-slate-400 hover:text-black font-black text-lg transition-colors">✕</button>
             </div>
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="selectRole('VIP')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-yellow-500/50 hover:text-yellow-400 text-slate-300 text-sm font-bold transition-all shadow-sm">VIP</button>
-                <button onclick="selectRole('仆人')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-slate-500/50 hover:text-white text-slate-300 text-sm font-bold transition-all shadow-sm">仆人</button>
-                <button onclick="selectRole('牧者')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-green-500/50 hover:text-green-400 text-slate-300 text-sm font-bold transition-all shadow-sm">牧者</button>
-                <button onclick="selectRole('牧夫')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-emerald-500/50 hover:text-emerald-400 text-slate-300 text-sm font-bold transition-all shadow-sm">牧夫</button>
-                <button onclick="selectRole('职司')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-blue-500/50 hover:text-blue-400 text-slate-300 text-sm font-bold transition-all shadow-sm">职司</button>
-                <button onclick="selectRole('牧师')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-purple-500/50 hover:text-purple-400 text-slate-300 text-sm font-bold transition-all shadow-sm">牧师</button>
-                <button onclick="selectRole('师母')" class="py-3.5 rounded-xl border border-white/5 bg-[#1a1a1a] hover:border-pink-500/50 hover:text-pink-400 text-slate-300 text-sm font-bold transition-all shadow-sm col-span-2">师母</button>
+                <button onclick="selectRole('VIP')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-yellow-500/50 hover:text-yellow-400 text-slate-600 text-sm font-bold transition-all shadow-sm">VIP</button>
+                <button onclick="selectRole('仆人')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-slate-500/50 hover:text-white text-slate-600 text-sm font-bold transition-all shadow-sm">仆人</button>
+                <button onclick="selectRole('牧者')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-green-500/50 hover:text-green-400 text-slate-600 text-sm font-bold transition-all shadow-sm">牧者</button>
+                <button onclick="selectRole('牧夫')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-emerald-500/50 hover:text-emerald-400 text-slate-600 text-sm font-bold transition-all shadow-sm">牧夫</button>
+                <button onclick="selectRole('职司')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-blue-500/50 hover:text-blue-400 text-slate-600 text-sm font-bold transition-all shadow-sm">职司</button>
+                <button onclick="selectRole('牧师')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-purple-500/50 hover:text-purple-400 text-slate-600 text-sm font-bold transition-all shadow-sm">牧师</button>
+                <button onclick="selectRole('师母')" class="py-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-pink-500/50 hover:text-pink-400 text-slate-600 text-sm font-bold transition-all shadow-sm col-span-2">师母</button>
             </div>
         </div>
     </div>
@@ -906,11 +926,20 @@
             document.getElementById('island-tab-private').className = !isPub ? "px-8 py-3 rounded-xl text-xs font-black transition-all bg-white text-black shadow-sm border border-slate-200" : "px-8 py-3 rounded-xl text-xs font-black transition-all bg-transparent text-slate-400 hover:text-black";
             document.getElementById('island-tab-public').className = isPub ? "px-8 py-3 rounded-xl text-xs font-black transition-all bg-white text-black shadow-sm border border-slate-200" : "px-8 py-3 rounded-xl text-xs font-black transition-all bg-transparent text-slate-400 hover:text-black";
             
-            document.getElementById('island-inquiry-list').innerHTML = filtered.map(i => `
-                <div onclick="openInquiryDetail('${i.question.replace(/'/g, "\\'")}')" class="bg-slate-50 p-8 rounded-[30px] flex justify-between items-center border border-slate-100 shadow-sm cursor-pointer hover:bg-white hover:border-purple-300 transition-all group">
-                    <div class="flex-1 pr-6">
-                        <h4 class="text-xl font-bold mb-2 text-black group-hover:text-purple-600 transition-colors">问: ${i.question}</h4>
-                        <button onclick="deleteInquiryDirectly('${i.question.replace(/'/g, "\\'")}', event)" class="text-[10px] font-black tracking-widest text-red-300 hover:text-red-500 transition-colors uppercase mt-1">删除此问题</button>
+            // ⚠️ 一个问题可能关联好几篇经文，数据库里就是好几行。
+            // 这里按问题去重，否则同一个问题会在列表里重复出现好几次。
+            const seen = new Set();
+            const uniq = filtered.filter(i => {
+                if (seen.has(i.question)) return false;
+                seen.add(i.question);
+                return true;
+            });
+
+            document.getElementById('island-inquiry-list').innerHTML = uniq.map(i => `
+                <div onclick="openInquiryDetail('${i.question.replace(/'/g, "\\'")}')" class="bg-slate-50 p-8 rounded-[30px] flex justify-between items-start gap-6 border border-slate-100 shadow-sm cursor-pointer hover:bg-white hover:border-purple-300 transition-all group">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line group-hover:text-purple-700 transition-colors">${i.question}</div>
+                        <button onclick="deleteInquiryDirectly('${i.question.replace(/'/g, "\\'")}', event)" class="text-[10px] font-black tracking-widest text-red-300 hover:text-red-500 transition-colors uppercase mt-4">删除此问题</button>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" onclick="event.stopPropagation()">
                         <input type="checkbox" class="sr-only switch-input" ${i.is_public ? 'checked' : ''} onchange="updateInquiryPrivacy('${i.question.replace(/'/g, "\\'")}', this.checked)">
@@ -993,26 +1022,26 @@ async function loadMyCreations(container) {
 
                 // 渲染衍生创作卡片
                 const renderCard = (p) => `
-                    <div onclick="jumpToScriptureFromActivity('${p.scripture_id}')" class="bg-[#1a1a1a] p-5 rounded-2xl border border-white/5 hover:border-white/20 cursor-pointer transition-colors group relative">
+                    <div onclick="jumpToScriptureFromActivity('${p.scripture_id}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative">
                         <div class="flex items-center gap-3 mb-3">
                             <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md ${p.tagColor}">${p.typeLabel}</span>
                             <span class="text-[10px] font-mono text-slate-500">${formatSimpleDate(p.created_at)}</span>
                             ${p.likes_count > 0 ? `<span class="text-[10px] text-red-400 font-bold ml-auto tracking-wider">❤️ ${p.likes_count}</span>` : ''}
                         </div>
-                        <div class="text-xs text-slate-400 mb-2 truncate">经文: <span class="text-white font-bold">${p.scripture?.title || '未知经文'}</span></div>
+                        <div class="text-xs text-slate-400 mb-2 truncate">经文: <span class="text-black font-bold">${p.scripture?.title || '未知经文'}</span></div>
                         <p class="text-slate-300 text-[13px] line-clamp-3 leading-relaxed font-light">${p.content}</p>
                     </div>
                 `;
 
                 // 架构师重构 2：为源头“主经文”定制高亮专属卡片
                 const renderScriptureCard = (s) => `
-                    <div onclick="jumpToScriptureFromActivity('${s.id}')" class="bg-[#1a1a1a] p-5 rounded-2xl border border-white/5 hover:border-yellow-500/30 cursor-pointer transition-colors group relative shadow-[0_0_15px_rgba(234,179,8,0.03)]">
+                    <div onclick="jumpToScriptureFromActivity('${s.id}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative shadow-[0_0_15px_rgba(234,179,8,0.03)]">
                         <div class="flex items-center gap-3 mb-3">
                             <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md bg-yellow-500/10 text-yellow-500">核心经文</span>
                             <span class="text-[10px] font-mono text-slate-500">${formatSimpleDate(s.created_at)}</span>
                             ${s.likes_count > 0 ? `<span class="text-[10px] text-red-400 font-bold ml-auto tracking-wider">❤️ ${s.likes_count}</span>` : ''}
                         </div>
-                        <h4 class="text-white font-bold text-sm mb-2 truncate">${s.title}</h4>
+                        <h4 class="text-black font-bold text-sm mb-2 truncate">${s.title}</h4>
                         <p class="text-slate-300 text-[13px] line-clamp-3 leading-relaxed font-light">${s.content}</p>
                     </div>
                 `;
@@ -1058,8 +1087,8 @@ async function loadMyCreations(container) {
                 // 架构师注入 1：极简双通道标签导航 (Tab)
                 const tabHtml = `
                     <div class="flex gap-8 mb-8 border-b border-white/10 pb-3 pl-2">
-                        <button onclick="loadMyLikes(document.getElementById('activity-modal-content'), 'received')" class="text-[11px] font-black tracking-widest uppercase transition-all ${viewType === 'received' ? 'text-red-400 border-b-2 border-red-400 pb-3 -mb-[14px]' : 'text-slate-500 hover:text-white'}">收到的共鸣 (被点赞)</button>
-                        <button onclick="loadMyLikes(document.getElementById('activity-modal-content'), 'given')" class="text-[11px] font-black tracking-widest uppercase transition-all ${viewType === 'given' ? 'text-blue-400 border-b-2 border-blue-400 pb-3 -mb-[14px]' : 'text-slate-500 hover:text-white'}">点亮书签 (我赞别人)</button>
+                        <button onclick="loadMyLikes(document.getElementById('activity-modal-content'), 'received')" class="text-[11px] font-black tracking-widest uppercase transition-all ${viewType === 'received' ? 'text-red-400 border-b-2 border-red-400 pb-3 -mb-[14px]' : 'text-slate-400 hover:text-black'}">收到的共鸣 (被点赞)</button>
+                        <button onclick="loadMyLikes(document.getElementById('activity-modal-content'), 'given')" class="text-[11px] font-black tracking-widest uppercase transition-all ${viewType === 'given' ? 'text-blue-400 border-b-2 border-blue-400 pb-3 -mb-[14px]' : 'text-slate-400 hover:text-black'}">点亮书签 (我赞别人)</button>
                     </div>
                     <div id="likes-grid-wrapper"></div>
                 `;
@@ -1126,28 +1155,28 @@ async function loadMyCreations(container) {
                     : `<span class="text-[10px] font-bold text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded">🔖 知识书签</span>`;
 
                 const renderCard = (p) => `
-                    <div onclick="jumpToScriptureFromActivity('${p.scripture_id}')" class="bg-[#1a1a1a] p-5 rounded-2xl border border-white/5 hover:border-white/20 cursor-pointer transition-colors group relative">
+                    <div onclick="jumpToScriptureFromActivity('${p.scripture_id}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative">
                         <div class="flex items-center gap-2 mb-3 flex-wrap">
                             <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md ${p.tagColor}">${p.typeLabel}</span>
                             ${badgeHtml}
                             <span class="text-[10px] font-mono text-slate-500 ml-auto">${formatSimpleDate(p.created_at)}</span>
                         </div>
-                        <div class="text-xs text-slate-400 mb-2 truncate">所属经文: <span class="text-white font-bold">${p.scripture?.title || '未知经文'}</span></div>
+                        <div class="text-xs text-slate-400 mb-2 truncate">所属经文: <span class="text-black font-bold">${p.scripture?.title || '未知经文'}</span></div>
                         <p class="text-slate-300 text-[13px] line-clamp-3 leading-relaxed font-light">${p.content}</p>
-                        <div class="mt-3 text-[10px] tracking-wider text-slate-500 font-bold border-t border-white/5 pt-3">当前作品累计: <span class="text-red-400">❤️ ${p.likes_count || 0} 赞</span></div>
+                        <div class="mt-3 text-[10px] tracking-wider text-slate-500 font-bold border-t border-slate-200 pt-3">当前作品累计: <span class="text-red-400">❤️ ${p.likes_count || 0} 赞</span></div>
                     </div>
                 `;
 
                 const renderScriptureCard = (s) => `
-                    <div onclick="jumpToScriptureFromActivity('${s.id}')" class="bg-[#1a1a1a] p-5 rounded-2xl border border-white/5 hover:border-yellow-500/30 cursor-pointer transition-colors group relative shadow-[0_0_15px_rgba(234,179,8,0.03)]">
+                    <div onclick="jumpToScriptureFromActivity('${s.id}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative shadow-[0_0_15px_rgba(234,179,8,0.03)]">
                         <div class="flex items-center gap-2 mb-3 flex-wrap">
                             <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md bg-yellow-500/10 text-yellow-500">核心经文</span>
                             ${badgeHtml}
                             <span class="text-[10px] font-mono text-slate-500 ml-auto">${formatSimpleDate(s.created_at)}</span>
                         </div>
-                        <h4 class="text-white font-bold text-sm mb-2 truncate">${s.title}</h4>
+                        <h4 class="text-black font-bold text-sm mb-2 truncate">${s.title}</h4>
                         <p class="text-slate-300 text-[13px] line-clamp-3 leading-relaxed font-light">${s.content}</p>
-                        <div class="mt-3 text-[10px] tracking-wider text-slate-500 font-bold border-t border-white/5 pt-3">当前经文累计: <span class="text-red-400">❤️ ${s.likes_count || 0} 赞</span></div>
+                        <div class="mt-3 text-[10px] tracking-wider text-slate-500 font-bold border-t border-slate-200 pt-3">当前经文累计: <span class="text-red-400">❤️ ${s.likes_count || 0} 赞</span></div>
                     </div>
                 `;
 
@@ -1208,19 +1237,27 @@ async function loadMyCreations(container) {
                 btn.innerText = "处理中...";
             }
 
-            const { error } = await _db.from('user_inquiries').insert([{ question: q, scripture_id: sid, user_id: currentUserId(), is_public: false }]);
-            
+            // 只收藏这一篇时，也把 AI 那段回应一起带上——
+            // 否则以后点开这条收藏，只看得到问题和经文，看不到当时读到的那段话
+            const { error } = await _db.from('user_inquiries').insert([{
+                question: q,
+                scripture_id: sid,
+                ai_answer: (_lastResult && _lastResult.question === q) ? _lastResult.answer : null,
+                user_id: currentUserId(),
+                is_public: _answerIsPublic
+            }]);
+
             if (error) {
-                alert("归档异常: " + error.message);
+                alert("收藏异常: " + error.message);
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerText = "归档";
+                    btn.innerText = "只收藏这一篇";
                 }
                 return;
             }
 
             if (btn) {
-                btn.innerHTML = "已归档 ✓";
+                btn.innerHTML = "已收藏 ✓";
                 btn.className = "text-[10px] font-black bg-slate-100 text-slate-400 px-5 py-2 rounded-full shadow-inner cursor-not-allowed transition-all";
             }
             
@@ -1249,17 +1286,27 @@ async function loadMyCreations(container) {
             document.getElementById('inquiry-modal-title').innerText = questionText;
             document.getElementById('btn-delete-inquiry').onclick = function() { deleteInquiryFromModal(questionText); };
 
+            // 收藏时存下来的那段 AI 回应。老的收藏没有这一项，就整块不显示。
+            const saved = relatedInquiries.find(i => i.ai_answer);
+            const answerWrap = document.getElementById('inquiry-modal-answer-wrap');
+            if (saved && saved.ai_answer) {
+                document.getElementById('inquiry-modal-answer').innerText = saved.ai_answer;
+                answerWrap.classList.remove('hidden');
+            } else {
+                answerWrap.classList.add('hidden');
+            }
+
             const contentDiv = document.getElementById('inquiry-modal-content');
             if (relatedScriptures.length > 0) {
                 contentDiv.innerHTML = relatedScriptures.map(p => `
-                    <div onclick="jumpToScriptureFromInquiry('${p.id}', '${questionText.replace(/'/g, "\\'")}')" class="bg-[#1a1a1a] p-6 rounded-2xl border border-white/5 hover:border-purple-500/50 cursor-pointer transition-colors group">
-                        <div class="text-xs font-mono text-slate-500 mb-3">${formatSimpleDate(p.created_at)}</div>
-                        <h3 class="text-xl font-black text-white mb-2 group-hover:text-purple-400 transition-colors">${p.title}</h3>
-                        <p class="text-sm text-slate-400 line-clamp-2">${p.content}</p>
+                    <div onclick="jumpToScriptureFromInquiry('${p.id}', '${questionText.replace(/'/g, "\\'")}')" class="bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group">
+                        <div class="text-xs font-mono text-slate-400 mb-3">${formatSimpleDate(p.created_at)}</div>
+                        <h3 class="text-lg font-black text-black mb-2 group-hover:text-purple-600 transition-colors">${p.title}</h3>
+                        <p class="text-[14px] leading-[1.8] text-slate-500 line-clamp-2">${p.content}</p>
                     </div>
                 `).join('');
             } else {
-                contentDiv.innerHTML = '<div class="text-slate-500 text-sm italic py-4">该问题暂无关联的经文记录。</div>';
+                contentDiv.innerHTML = '<div class="text-slate-400 text-sm italic py-4">这条收藏还没有关联的经文。</div>';
             }
 
             document.getElementById('inquiry-modal').classList.remove('hidden');
@@ -1286,7 +1333,7 @@ async function loadMyCreations(container) {
                 <article class="bg-white p-10 rounded-[45px] border border-slate-100 hover:shadow-2xl transition-all duration-500 group">
                     <div class="mb-6 flex justify-between overflow-hidden">
                         <span class="text-xs font-mono text-slate-400 font-bold">${formatSimpleDate(p.created_at)}</span>
-                        ${query ? `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-black text-white px-5 py-2 rounded-full shadow-lg transition-all hover:bg-slate-800">归档</button>` : ''}
+                        ${query ? `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-black text-white px-5 py-2 rounded-full shadow-lg transition-all hover:bg-slate-800">只收藏这一篇</button>` : ''}
                     </div>
                     <div onclick="showScriptureDetail('${p.id}')" class="cursor-pointer">
                         <h2 class="text-4xl font-black mb-6 text-black group-hover:text-purple-600 transition-colors">${p.title}</h2>
@@ -1324,30 +1371,45 @@ async function loadMyCreations(container) {
             );
         }
 
+        // 这一次搜索的结果，收藏的时候要用
+        let _lastResult = null;          // { question, answer, cardIds }
+        let _answerIsPublic = false;     // 默认私人收藏
+
+        // 「私人收藏 / 公开展示」两个按钮，选中的那个变成黑底白字
+        function setAnswerVisibility(isPublic) {
+            _answerIsPublic = isPublic;
+            const on = "text-[12px] font-bold px-5 py-2.5 rounded-full border border-black bg-black text-white transition-all";
+            const off = "text-[12px] font-bold px-5 py-2.5 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-black transition-all";
+            document.getElementById('vis-private').className = isPublic ? off : on;
+            document.getElementById('vis-public').className = isPublic ? on : off;
+        }
+
         async function executeFullSearch(q) {
             if (!q) return;
             _searchQuery = q;
+            _lastResult = null;
 
-            // 送出之后输入框就清空——他写的话改在下面「你写下的」那里显示，
+            // 送出之后输入框就清空——他写的话改在「你写下的」那里显示，
             // 免得同一段文字在页面上出现两遍
             const inputEl = document.getElementById('smart-search-input');
             inputEl.value = '';
             inputEl.style.height = '';
 
             document.getElementById('search-keyword-display').innerText = q;
-            document.getElementById('search-header').classList.remove('hidden');
-            const islandTitle = document.getElementById('island-title-collapsed');
-            // 顶部那个小胶囊放不下长句子，截一段就够了
-            if (islandTitle) islandTitle.innerText = q.length > 16 ? q.slice(0, 16) + '…' : q;
+            // 顶部那个小胶囊不再显示问题——问题已经在框里了，
+            // 胶囊太窄，长句子只能截断，显示了反而碍眼
 
             const box = document.getElementById('ai-answer-box');
             const loading = document.getElementById('ai-answer-loading');
             const textEl = document.getElementById('ai-answer-text');
+            const actions = document.getElementById('ai-answer-actions');
 
             box.classList.remove('hidden');
             loading.classList.remove('hidden');
+            actions.classList.add('hidden');
             textEl.innerText = '';
             textEl.classList.remove('text-slate-400', 'italic');
+            setAnswerVisibility(false);
             document.getElementById('flow-feed').innerHTML = '';
 
             try {
@@ -1386,6 +1448,14 @@ async function loadMyCreations(container) {
                     .map(c => _scriptures.find(s => s.id === c.id))
                     .filter(Boolean);
 
+                _lastResult = {
+                    question: q,
+                    answer: data.answer || null,
+                    cardIds: list.map(s => s.id)
+                };
+                // 登录了才给收藏（要写进他自己的档案）
+                if (currentUserId()) actions.classList.remove('hidden');
+
                 if (list.length > 0) {
                     renderMainFeed(list, q);
                 } else {
@@ -1394,20 +1464,62 @@ async function loadMyCreations(container) {
             } catch (err) {
                 console.warn('AI 搜索失败，退回字面匹配：', err);
                 loading.classList.add('hidden');
-                box.classList.add('hidden');
+                // 框不隐藏——他写的话和「✕ 清除」都在里面，藏了就没处点了
+                textEl.innerText = '这会儿人有点多，先看看这几篇。';
+                textEl.classList.add('text-slate-400', 'italic');
                 fallbackKeywordSearch(q);
             }
         }
 
+        // 把这一次的问题 + AI 的回应 + 3 篇经文一起存进个人档案。
+        // 数据库里是一篇经文一行，但每一行都带着同样的问题和回应，
+        // 列表渲染时会按问题去重，所以看起来是一条。
+        async function saveThisAnswer() {
+            if (!_lastResult) return;
+            if (!currentUserId()) { alert('登录之后才能收藏'); return; }
+
+            const btn = document.getElementById('btn-save-inquiry');
+            const original = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = '收藏中…';
+
+            const ids = _lastResult.cardIds.length ? _lastResult.cardIds : [null];
+            const rows = ids.map(id => ({
+                question: _lastResult.question,
+                ai_answer: _lastResult.answer,
+                scripture_id: id,
+                user_id: currentUserId(),
+                is_public: _answerIsPublic
+            }));
+
+            const { error } = await _db.from('user_inquiries').insert(rows);
+
+            if (error) {
+                console.warn('收藏失败：', error);
+                btn.innerText = '收藏失败，再试一次';
+                btn.disabled = false;
+                setTimeout(() => { btn.innerText = original; }, 2500);
+                return;
+            }
+
+            btn.innerText = _answerIsPublic ? '已收藏（公开展示）' : '已收藏（私人）';
+
+            const { data: iData } = await _db.from('user_inquiries')
+                .select('*, scripture(title)')
+                .eq('user_id', currentUserId())
+                .order('created_at', { ascending: false });
+            if (iData) _inquiries = iData;
+        }
+
         function exitSearchMode() {
             _searchQuery = "";
+            _lastResult = null;
             const inputEl = document.getElementById('smart-search-input');
             inputEl.value = "";
             inputEl.style.height = "";   // 高度也要收回去，否则会一直撑着
-            document.getElementById('search-header').classList.add('hidden');
             document.getElementById('ai-answer-box').classList.add('hidden');
-            const islandTitle = document.getElementById('island-title-collapsed');
-            if (islandTitle) islandTitle.innerText = "元的个人中心";
+            const btn = document.getElementById('btn-save-inquiry');
+            if (btn) { btn.disabled = false; btn.innerText = '收藏问题和回应'; }
             renderMainFeed(_scriptures);
         }
 
