@@ -318,41 +318,46 @@
     <!-- 中间主内容 -->
     <main id="main-flow-container" class="main-content z-10 relative bg-white transition-colors duration-300">
         <section class="max-w-5xl mx-auto px-12 pt-24 pb-40">
+            <div onclick="openPublishModal()" class="w-full bg-slate-50 border-2 border-slate-100 border-dashed rounded-full px-8 py-4 mb-8 text-center text-sm font-bold text-slate-400 cursor-pointer hover:bg-slate-100 hover:text-black transition-all">
+                + 点击此处，记录新的经文或启示...
+            </div>
+
             <!-- 这里不是搜关键词，是让人把心里的话写出来，所以用多行输入框，
-                 写多少它就长多高。回车是换行，⌘/Ctrl + 回车才送出。 -->
-            <div class="relative mb-8 z-[20]">
+                 写多少它就长多高。回车只换行，要点「送出」才提交。 -->
+            <div class="relative mb-16 z-[20]">
                 <div class="bg-white border border-slate-200 shadow-sm rounded-[36px] px-8 py-6 focus-within:border-black transition-all">
                     <textarea id="smart-search-input" rows="3"
                         oninput="autoGrowSearch(this)"
-                        onkeydown="handleSearchKey(event)"
                         placeholder="今天心里有什么事？"
-                        class="w-full bg-transparent resize-none outline-none text-lg font-medium leading-[2] text-black placeholder-slate-300"></textarea>
-                    <div class="flex justify-between items-center mt-3 pt-4 border-t border-slate-50">
-                        <span class="text-[10px] text-slate-300 font-medium tracking-wide">写多少都可以　·　⌘ / Ctrl + Enter 送出</span>
+                        class="w-full bg-transparent resize-none outline-none text-[16px] leading-[1.8] text-slate-800 placeholder-slate-300"></textarea>
+                    <div class="flex justify-between items-center gap-6 mt-3 pt-4 border-t border-slate-50">
+                        <span class="text-[13px] text-slate-400 font-medium">写多少都可以，写完点右边「送出」</span>
                         <button onclick="executeFullSearch(document.getElementById('smart-search-input').value.trim())"
-                            class="text-[11px] font-black bg-black text-white px-7 py-2.5 rounded-full hover:bg-slate-800 transition-all flex-shrink-0">
+                            class="text-[13px] font-black bg-black text-white px-8 py-3 rounded-full hover:bg-slate-800 transition-all flex-shrink-0">
                             送出
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div onclick="openPublishModal()" class="w-full bg-slate-50 border-2 border-slate-100 border-dashed rounded-full px-8 py-4 mb-16 text-center text-sm font-bold text-slate-400 cursor-pointer hover:bg-slate-100 hover:text-black transition-all">
-                + 点击此处，记录新的经文或启示...
+            <!-- 送出之后，把他写下的话显示在这里（输入框会清空） -->
+            <div id="search-header" class="hidden mb-10">
+                <div class="flex justify-between items-start gap-8 border-b border-slate-100 pb-6">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">你写下的</div>
+                        <div id="search-keyword-display" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
+                    </div>
+                    <button onclick="exitSearchMode()" class="text-[10px] font-black text-slate-400 hover:text-black flex-shrink-0 whitespace-nowrap">✕ 清除</button>
+                </div>
             </div>
 
-            <div id="search-header" class="hidden flex justify-between items-end mb-8 border-b border-slate-100 pb-4 transition-colors">
-                <h2 class="text-2xl font-black italic tracking-tighter" id="search-keyword-display">检索匹配结果</h2>
-                <button onclick="exitSearchMode()" class="text-[10px] font-black text-slate-400 hover:text-black">✕ 清除检索</button>
-            </div>
-
-            <!-- AI 回应区。搜索后显示在经文卡片上方；没搜索时整块隐藏。 -->
+            <!-- AI 回应区。样式跟经文卡片保持一致：白底、同样的圆角和字号 -->
             <div id="ai-answer-box" class="hidden mb-14">
-                <div class="bg-[#fbfaf8] border border-slate-100 rounded-[36px] px-10 py-9">
-                    <div id="ai-answer-loading" class="hidden text-slate-400 text-sm font-medium tracking-wide">
+                <div class="bg-white border border-slate-100 rounded-[45px] px-10 py-10">
+                    <div id="ai-answer-loading" class="hidden text-slate-400 text-[16px]">
                         正在为你寻找…
                     </div>
-                    <div id="ai-answer-text" class="text-[17px] leading-[2.1] text-slate-700 font-light whitespace-pre-line"></div>
+                    <div id="ai-answer-text" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
                 </div>
                 <div class="mt-10 mb-2 text-[10px] font-black text-slate-400 tracking-widest uppercase">相关的经文</div>
             </div>
@@ -1305,15 +1310,6 @@ async function loadMyCreations(container) {
             el.style.height = Math.min(el.scrollHeight, 340) + 'px';
         }
 
-        function handleSearchKey(e) {
-            // 回车是换行，⌘/Ctrl + 回车才送出。
-            // 因为这里要写的可能是好几段话，回车直接提交会把人打断。
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                executeFullSearch(e.target.value.trim());
-            }
-        }
-
         // 语义搜索走的是 Supabase 的 Edge Function（scripture-search）。
         // 为什么不在这里直接调 AI：网页源码是公开的，API 密钥写进来等于公开发布。
         // 密钥存在服务端，网页只调这个中转。
@@ -1331,10 +1327,18 @@ async function loadMyCreations(container) {
         async function executeFullSearch(q) {
             if (!q) return;
             _searchQuery = q;
-            document.getElementById('search-keyword-display').innerText = '检索: ' + q;
+
+            // 送出之后输入框就清空——他写的话改在下面「你写下的」那里显示，
+            // 免得同一段文字在页面上出现两遍
+            const inputEl = document.getElementById('smart-search-input');
+            inputEl.value = '';
+            inputEl.style.height = '';
+
+            document.getElementById('search-keyword-display').innerText = q;
             document.getElementById('search-header').classList.remove('hidden');
             const islandTitle = document.getElementById('island-title-collapsed');
-            if (islandTitle) islandTitle.innerText = '检索: ' + q;
+            // 顶部那个小胶囊放不下长句子，截一段就够了
+            if (islandTitle) islandTitle.innerText = q.length > 16 ? q.slice(0, 16) + '…' : q;
 
             const box = document.getElementById('ai-answer-box');
             const loading = document.getElementById('ai-answer-loading');
