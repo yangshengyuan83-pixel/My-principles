@@ -332,6 +332,17 @@
                 <button onclick="exitSearchMode()" class="text-[10px] font-black text-slate-400 hover:text-black">✕ 清除检索</button>
             </div>
 
+            <!-- AI 回应区。搜索后显示在经文卡片上方；没搜索时整块隐藏。 -->
+            <div id="ai-answer-box" class="hidden mb-14">
+                <div class="bg-[#fbfaf8] border border-slate-100 rounded-[36px] px-10 py-9">
+                    <div id="ai-answer-loading" class="hidden text-slate-400 text-sm font-medium tracking-wide">
+                        正在为你寻找…
+                    </div>
+                    <div id="ai-answer-text" class="text-[17px] leading-[2.1] text-slate-700 font-light whitespace-pre-line"></div>
+                </div>
+                <div class="mt-10 mb-2 text-[10px] font-black text-slate-400 tracking-widest uppercase">相关的经文</div>
+            </div>
+
             <div id="flow-feed" class="space-y-16"></div>
         </section>
     </main>
@@ -1281,18 +1292,91 @@ async function loadMyCreations(container) {
             }
         }
 
-        function executeFullSearch(q) {
+        // 语义搜索走的是 Supabase 的 Edge Function（scripture-search）。
+        // 为什么不在这里直接调 AI：网页源码是公开的，API 密钥写进来等于公开发布。
+        // 密钥存在服务端，网页只调这个中转。
+        const SEARCH_FN_URL = SUPABASE_URL + '/functions/v1/scripture-search';
+
+        // 退路：AI 那条路走不通时，退回原来的字面匹配。
+        // 搜索框不能因为 AI 挂了就变成死的。
+        function fallbackKeywordSearch(q) {
+            renderMainFeed(
+                _scriptures.filter(p => (p.title + p.content).toLowerCase().includes(q.toLowerCase())),
+                q
+            );
+        }
+
+        async function executeFullSearch(q) {
+            if (!q) return;
             _searchQuery = q;
             document.getElementById('search-keyword-display').innerText = '检索: ' + q;
             document.getElementById('search-header').classList.remove('hidden');
             const islandTitle = document.getElementById('island-title-collapsed');
             if (islandTitle) islandTitle.innerText = '检索: ' + q;
-            renderMainFeed(_scriptures.filter(p => (p.title + p.content).toLowerCase().includes(q.toLowerCase())), q);
+
+            const box = document.getElementById('ai-answer-box');
+            const loading = document.getElementById('ai-answer-loading');
+            const textEl = document.getElementById('ai-answer-text');
+
+            box.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            textEl.innerText = '';
+            textEl.classList.remove('text-slate-400', 'italic');
+            document.getElementById('flow-feed').innerHTML = '';
+
+            try {
+                const res = await fetch(SEARCH_FN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY
+                    },
+                    body: JSON.stringify({
+                        question: q,
+                        // 个人主页还没有「名字」这个字段，所以现在一律传 null，
+                        // 回应里会用「亲爱的弟兄姊妹」。主页做好之后把名字接进来。
+                        name: window.CURRENT_USER_NAME || null
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '搜索暂时不可用');
+
+                loading.classList.add('hidden');
+
+                if (data.answer) {
+                    textEl.innerText = data.answer;
+                } else {
+                    // 两个模型都写不出来时（多半是同一分钟里搜索的人太多）。
+                    // 经文卡片照常显示，不给用户看报错。
+                    textEl.innerText = '这会儿人有点多，先看看这几篇。';
+                    textEl.classList.add('text-slate-400', 'italic');
+                }
+
+                // 函数返回的只有 id / 标题 / 相似度，
+                // 拿 id 去已经加载好的 _scriptures 里取完整记录，复用原来的卡片样式
+                const list = (data.cards || [])
+                    .map(c => _scriptures.find(s => s.id === c.id))
+                    .filter(Boolean);
+
+                if (list.length > 0) {
+                    renderMainFeed(list, q);
+                } else {
+                    fallbackKeywordSearch(q);
+                }
+            } catch (err) {
+                console.warn('AI 搜索失败，退回字面匹配：', err);
+                loading.classList.add('hidden');
+                box.classList.add('hidden');
+                fallbackKeywordSearch(q);
+            }
         }
 
         function exitSearchMode() {
             _searchQuery = ""; document.getElementById('smart-search-input').value = "";
             document.getElementById('search-header').classList.add('hidden');
+            document.getElementById('ai-answer-box').classList.add('hidden');
             const islandTitle = document.getElementById('island-title-collapsed');
             if (islandTitle) islandTitle.innerText = "元的个人中心";
             renderMainFeed(_scriptures);
