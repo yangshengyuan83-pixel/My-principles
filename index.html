@@ -318,9 +318,23 @@
     <!-- 中间主内容 -->
     <main id="main-flow-container" class="main-content z-10 relative bg-white transition-colors duration-300">
         <section class="max-w-5xl mx-auto px-12 pt-24 pb-40">
+            <!-- 这里不是搜关键词，是让人把心里的话写出来，所以用多行输入框，
+                 写多少它就长多高。回车是换行，⌘/Ctrl + 回车才送出。 -->
             <div class="relative mb-8 z-[20]">
-                <!-- 架构师修改：移除了 oninput 触发器，仅保留回车检索，并清除了下方的冗余 dropdown 容器 -->
-                <input id="smart-search-input" onkeydown="handleSearchKey(event)" placeholder="探索经文、问题或智慧脉络..." class="w-full bg-white border border-slate-200 shadow-sm rounded-full px-10 py-5 text-center text-lg font-medium outline-none focus:border-black transition-all text-black placeholder-slate-300">
+                <div class="bg-white border border-slate-200 shadow-sm rounded-[36px] px-8 py-6 focus-within:border-black transition-all">
+                    <textarea id="smart-search-input" rows="3"
+                        oninput="autoGrowSearch(this)"
+                        onkeydown="handleSearchKey(event)"
+                        placeholder="今天心里有什么事？"
+                        class="w-full bg-transparent resize-none outline-none text-lg font-medium leading-[2] text-black placeholder-slate-300"></textarea>
+                    <div class="flex justify-between items-center mt-3 pt-4 border-t border-slate-50">
+                        <span class="text-[10px] text-slate-300 font-medium tracking-wide">写多少都可以　·　⌘ / Ctrl + Enter 送出</span>
+                        <button onclick="executeFullSearch(document.getElementById('smart-search-input').value.trim())"
+                            class="text-[11px] font-black bg-black text-white px-7 py-2.5 rounded-full hover:bg-slate-800 transition-all flex-shrink-0">
+                            送出
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div onclick="openPublishModal()" class="w-full bg-slate-50 border-2 border-slate-100 border-dashed rounded-full px-8 py-4 mb-16 text-center text-sm font-bold text-slate-400 cursor-pointer hover:bg-slate-100 hover:text-black transition-all">
@@ -1285,9 +1299,17 @@ async function loadMyCreations(container) {
 
     
 
+        // 输入框随内容长高，最多长到 340px 就开始自己滚
+        function autoGrowSearch(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 340) + 'px';
+        }
+
         function handleSearchKey(e) {
-            if (e.key === 'Enter') {
-                // 架构师修改：移除了控制下拉菜单隐藏的逻辑，直接执行全局检索
+            // 回车是换行，⌘/Ctrl + 回车才送出。
+            // 因为这里要写的可能是好几段话，回车直接提交会把人打断。
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
                 executeFullSearch(e.target.value.trim());
             }
         }
@@ -1374,7 +1396,10 @@ async function loadMyCreations(container) {
         }
 
         function exitSearchMode() {
-            _searchQuery = ""; document.getElementById('smart-search-input').value = "";
+            _searchQuery = "";
+            const inputEl = document.getElementById('smart-search-input');
+            inputEl.value = "";
+            inputEl.style.height = "";   // 高度也要收回去，否则会一直撑着
             document.getElementById('search-header').classList.add('hidden');
             document.getElementById('ai-answer-box').classList.add('hidden');
             const islandTitle = document.getElementById('island-title-collapsed');
