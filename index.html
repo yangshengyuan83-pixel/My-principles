@@ -338,6 +338,15 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 写过的话的记录。只存在这台电脑的浏览器里，不上传。
+                     忘了点收藏的时候，还能从这里找回来。 -->
+                <div id="history-wrap" class="hidden mt-5 px-4">
+                    <button onclick="toggleHistory()" class="text-[12px] font-bold text-slate-400 hover:text-black transition-colors">
+                        <span id="history-toggle-text">最近写过的</span> <span id="history-count" class="text-slate-300"></span>
+                    </button>
+                    <div id="history-list" class="hidden mt-4 space-y-3"></div>
+                </div>
             </div>
 
             <!-- 你写下的话 + AI 的回应，放在同一个框里。
@@ -358,19 +367,6 @@
                     </div>
                     <div id="ai-answer-text" class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line"></div>
 
-                    <!-- 收藏那一行。没登录或还没出结果时整行隐藏。 -->
-                    <div id="ai-answer-actions" class="hidden mt-10 pt-6 border-t border-slate-100 flex items-center justify-between gap-6 flex-wrap">
-                        <button id="btn-save-inquiry" onclick="saveThisAnswer()"
-                            class="text-[13px] font-black bg-black text-white px-7 py-3 rounded-full hover:bg-slate-800 transition-all">
-                            收藏问题和回应
-                        </button>
-                        <div class="flex items-center gap-2">
-                            <button id="vis-private" onclick="setAnswerVisibility(false)"
-                                class="text-[12px] font-bold px-5 py-2.5 rounded-full border border-black bg-black text-white transition-all">私人收藏</button>
-                            <button id="vis-public" onclick="setAnswerVisibility(true)"
-                                class="text-[12px] font-bold px-5 py-2.5 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-black transition-all">公开展示</button>
-                        </div>
-                    </div>
 
                 </div>
                 <div class="mt-10 mb-2 text-[10px] font-black text-slate-400 tracking-widest uppercase">相关的经文</div>
@@ -812,6 +808,7 @@
             refreshTasks();
             refreshCornerstones();
             loadProfileInfo();
+            renderHistory();
 
             if (_searchQuery) {
                 executeFullSearch(_searchQuery);
@@ -1231,43 +1228,46 @@ async function loadMyCreations(container) {
             bootstrap();
         }
 
+        // 卡片上那个按钮：加上这一篇 / 去掉这一篇。
+        // 和上面的主按钮是一套数据，所以两边的状态永远一致。
         async function confirmQuickInquiry(q, sid, btn) {
+            if (!currentUserId()) { alert('登录之后才能收藏'); return; }
             if (btn) {
                 btn.disabled = true;
                 btn.innerText = "处理中...";
             }
 
-            // 只收藏这一篇时，也把 AI 那段回应一起带上——
-            // 否则以后点开这条收藏，只看得到问题和经文，看不到当时读到的那段话
-            const { error } = await _db.from('user_inquiries').insert([{
-                question: q,
-                scripture_id: sid,
-                ai_answer: (_lastResult && _lastResult.question === q) ? _lastResult.answer : null,
-                user_id: currentUserId(),
-                is_public: _answerIsPublic
-            }]);
+            let error;
+            if (isCardSaved(q, sid)) {
+                // 已经在收藏里了 → 把这一行去掉
+                ({ error } = await _db.from('user_inquiries')
+                    .delete()
+                    .eq('question', q)
+                    .eq('scripture_id', sid)
+                    .eq('user_id', currentUserId()));
+            } else {
+                // 也把 AI 那段回应一起带上——否则以后点开这条收藏，
+                // 只看得到问题和经文，看不到当时读到的那段话
+                ({ error } = await _db.from('user_inquiries').insert([{
+                    question: q,
+                    scripture_id: sid,
+                    ai_answer: (_lastResult && _lastResult.question === q) ? _lastResult.answer : null,
+                    user_id: currentUserId(),
+                    is_public: _answerIsPublic
+                }]));
+            }
 
             if (error) {
                 alert("收藏异常: " + error.message);
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = "只收藏这一篇";
-                }
-                return;
+                if (btn) btn.disabled = false;
             }
 
-            if (btn) {
-                btn.innerHTML = "已收藏 ✓";
-                btn.className = "text-[10px] font-black bg-slate-100 text-slate-400 px-5 py-2 rounded-full shadow-inner cursor-not-allowed transition-all";
+            await reloadInquiries();
+            refreshSaveButton();
+            // 重画卡片，让每个按钮显示自己当前的状态
+            if (_lastResult && _lastResult.list && _lastResult.list.length) {
+                renderMainFeed(_lastResult.list, q);
             }
-            
-            // 架构师修复：静默更新后台的“问题档案库”数据
-            // 这样既不会引发页面闪烁打断阅读，又能保证下次点击灵动岛时，最新数据已经准备就绪！
-            const { data: iData } = await _db.from('user_inquiries')
-                                        .select('*, scripture(title)')
-                                        .eq('user_id', currentUserId())
-                                        .order('created_at', { ascending: false });
-            if (iData) _inquiries = iData;
         }
 
         async function deleteInquiryFromModal(q) {
@@ -1333,7 +1333,9 @@ async function loadMyCreations(container) {
                 <article class="bg-white p-10 rounded-[45px] border border-slate-100 hover:shadow-2xl transition-all duration-500 group">
                     <div class="mb-6 flex justify-between overflow-hidden">
                         <span class="text-xs font-mono text-slate-400 font-bold">${formatSimpleDate(p.created_at)}</span>
-                        ${query ? `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-black text-white px-5 py-2 rounded-full shadow-lg transition-all hover:bg-slate-800">只收藏这一篇</button>` : ''}
+                        ${query ? (isCardSaved(query, p.id)
+                            ? `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-white text-slate-400 border border-slate-200 px-5 py-2 rounded-full transition-all hover:text-black hover:border-black">已收藏 ✓ 点击取消</button>`
+                            : `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-black text-white px-5 py-2 rounded-full shadow-lg transition-all hover:bg-slate-800">收藏这一篇</button>`) : ''}
                     </div>
                     <div onclick="showScriptureDetail('${p.id}')" class="cursor-pointer">
                         <h2 class="text-4xl font-black mb-6 text-black group-hover:text-purple-600 transition-colors">${p.title}</h2>
@@ -1372,16 +1374,69 @@ async function loadMyCreations(container) {
         }
 
         // 这一次搜索的结果，收藏的时候要用
-        let _lastResult = null;          // { question, answer, cardIds }
+        let _lastResult = null;          // { question, answer, list }
         let _answerIsPublic = false;     // 默认私人收藏
 
-        // 「私人收藏 / 公开展示」两个按钮，选中的那个变成黑底白字
-        function setAnswerVisibility(isPublic) {
-            _answerIsPublic = isPublic;
-            const on = "text-[12px] font-bold px-5 py-2.5 rounded-full border border-black bg-black text-white transition-all";
-            const off = "text-[12px] font-bold px-5 py-2.5 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-black transition-all";
-            document.getElementById('vis-private').className = isPublic ? off : on;
-            document.getElementById('vis-public').className = isPublic ? on : off;
+        // ── 写过的话的记录 ──
+        // ⚠️ 只存在这台电脑的浏览器里（localStorage），不会上传到服务器。
+        // 真正要留下来的，是点「收藏」——那个才进他自己的账号。
+        // 这样分工的原因：搜索框里写的往往是最脆弱的时刻，
+        // 默认全部上传保存，不是一个该替用户做的决定。
+        const HISTORY_KEY = 'dw_search_history';
+        const HISTORY_MAX = 20;
+
+        function loadHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+            catch (e) { return []; }
+        }
+        function saveHistory(list) {
+            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+        function pushHistory(q) {
+            let list = loadHistory().filter(h => h.q !== q);
+            list.unshift({ q: q, at: Date.now() });
+            saveHistory(list.slice(0, HISTORY_MAX));
+            renderHistory();
+        }
+        function removeHistoryItem(idx) {
+            const list = loadHistory();
+            list.splice(idx, 1);
+            saveHistory(list);
+            renderHistory();
+        }
+        function clearHistory() {
+            if (!confirm('清空这台电脑上的记录？收藏过的不受影响。')) return;
+            saveHistory([]);
+            renderHistory();
+        }
+        function rerunHistory(idx) {
+            const list = loadHistory();
+            if (list[idx]) executeFullSearch(list[idx].q);
+        }
+        function toggleHistory() {
+            const el = document.getElementById('history-list');
+            const txt = document.getElementById('history-toggle-text');
+            const open = el.classList.toggle('hidden') === false;
+            txt.innerText = open ? '收起' : '最近写过的';
+        }
+        function renderHistory() {
+            const list = loadHistory();
+            const wrap = document.getElementById('history-wrap');
+            if (!wrap) return;
+            if (list.length === 0) { wrap.classList.add('hidden'); return; }
+            wrap.classList.remove('hidden');
+            document.getElementById('history-count').innerText = '(' + list.length + ')';
+            document.getElementById('history-list').innerHTML =
+                list.map((h, i) => `
+                    <div class="flex items-start gap-4">
+                        <button onclick="rerunHistory(${i})" class="flex-1 text-left text-[13px] leading-[1.8] text-slate-500 hover:text-black transition-colors line-clamp-2">${h.q}</button>
+                        <button onclick="removeHistoryItem(${i})" class="text-[11px] text-slate-300 hover:text-red-500 transition-colors flex-shrink-0 mt-1">✕</button>
+                    </div>
+                `).join('') +
+                `<div class="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center">
+                    <span class="text-[11px] text-slate-300">只存在这台电脑上，不会上传</span>
+                    <button onclick="clearHistory()" class="text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors">清空</button>
+                </div>`;
         }
 
         async function executeFullSearch(q) {
@@ -1399,17 +1454,16 @@ async function loadMyCreations(container) {
             // 顶部那个小胶囊不再显示问题——问题已经在框里了，
             // 胶囊太窄，长句子只能截断，显示了反而碍眼
 
+            pushHistory(q);
+
             const box = document.getElementById('ai-answer-box');
             const loading = document.getElementById('ai-answer-loading');
             const textEl = document.getElementById('ai-answer-text');
-            const actions = document.getElementById('ai-answer-actions');
 
             box.classList.remove('hidden');
             loading.classList.remove('hidden');
-            actions.classList.add('hidden');
             textEl.innerText = '';
             textEl.classList.remove('text-slate-400', 'italic');
-            setAnswerVisibility(false);
             document.getElementById('flow-feed').innerHTML = '';
 
             try {
@@ -1451,10 +1505,10 @@ async function loadMyCreations(container) {
                 _lastResult = {
                     question: q,
                     answer: data.answer || null,
-                    cardIds: list.map(s => s.id)
+                    list: list
                 };
                 // 登录了才给收藏（要写进他自己的档案）
-                if (currentUserId()) actions.classList.remove('hidden');
+                refreshSaveButton();
 
                 if (list.length > 0) {
                     renderMainFeed(list, q);
@@ -1471,44 +1525,33 @@ async function loadMyCreations(container) {
             }
         }
 
-        // 把这一次的问题 + AI 的回应 + 3 篇经文一起存进个人档案。
-        // 数据库里是一篇经文一行，但每一行都带着同样的问题和回应，
-        // 列表渲染时会按问题去重，所以看起来是一条。
-        async function saveThisAnswer() {
-            if (!_lastResult) return;
-            if (!currentUserId()) { alert('登录之后才能收藏'); return; }
+        // ── 收藏的状态判断 ──
+        // 数据库里是「一篇经文一行」，每一行都带着同样的问题和回应。
+        // 所以「这个问题收藏过没有」= 有没有任何一行；
+        // 「这一篇收藏过没有」= 有没有这一行。
 
-            const btn = document.getElementById('btn-save-inquiry');
-            const original = btn.innerText;
-            btn.disabled = true;
-            btn.innerText = '收藏中…';
+        function isQuestionSaved(q) {
+            return _inquiries.some(i => i.question === q);
+        }
+        function isCardSaved(q, sid) {
+            return _inquiries.some(i => i.question === q && i.scripture_id === sid);
+        }
 
-            const ids = _lastResult.cardIds.length ? _lastResult.cardIds : [null];
-            const rows = ids.map(id => ({
-                question: _lastResult.question,
-                ai_answer: _lastResult.answer,
-                scripture_id: id,
-                user_id: currentUserId(),
-                is_public: _answerIsPublic
-            }));
-
-            const { error } = await _db.from('user_inquiries').insert(rows);
-
-            if (error) {
-                console.warn('收藏失败：', error);
-                btn.innerText = '收藏失败，再试一次';
-                btn.disabled = false;
-                setTimeout(() => { btn.innerText = original; }, 2500);
-                return;
-            }
-
-            btn.innerText = _answerIsPublic ? '已收藏（公开展示）' : '已收藏（私人）';
-
-            const { data: iData } = await _db.from('user_inquiries')
+        async function reloadInquiries() {
+            const { data } = await _db.from('user_inquiries')
                 .select('*, scripture(title)')
                 .eq('user_id', currentUserId())
                 .order('created_at', { ascending: false });
-            if (iData) _inquiries = iData;
+            if (data) _inquiries = data;
+        }
+
+        // 如果这个问题之前就收藏过，沿用当时选的公开/私人，
+        // 不要因为又搜了一次就悄悄改回默认值。
+        // 公开/私人的开关现在在个人中心那份收藏列表里（每条右边那个滑块）。
+        function refreshSaveButton() {
+            if (!_lastResult) return;
+            const row = _inquiries.find(i => i.question === _lastResult.question);
+            _answerIsPublic = row ? !!row.is_public : false;
         }
 
         function exitSearchMode() {
@@ -1518,8 +1561,6 @@ async function loadMyCreations(container) {
             inputEl.value = "";
             inputEl.style.height = "";   // 高度也要收回去，否则会一直撑着
             document.getElementById('ai-answer-box').classList.add('hidden');
-            const btn = document.getElementById('btn-save-inquiry');
-            if (btn) { btn.disabled = false; btn.innerText = '收藏问题和回应'; }
             renderMainFeed(_scriptures);
         }
 
