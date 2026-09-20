@@ -339,14 +339,6 @@
                     </div>
                 </div>
 
-                <!-- 写过的话的记录。只存在这台电脑的浏览器里，不上传。
-                     忘了点收藏的时候，还能从这里找回来。 -->
-                <div id="history-wrap" class="hidden mt-5 px-4">
-                    <button onclick="toggleHistory()" class="text-[12px] font-bold text-slate-400 hover:text-black transition-colors">
-                        <span id="history-toggle-text">最近写过的</span> <span id="history-count" class="text-slate-300"></span>
-                    </button>
-                    <div id="history-list" class="hidden mt-4 space-y-3"></div>
-                </div>
             </div>
 
             <!-- 你写下的话 + AI 的回应，放在同一个框里。
@@ -808,7 +800,6 @@
             refreshTasks();
             refreshCornerstones();
             loadProfileInfo();
-            renderHistory();
 
             if (_searchQuery) {
                 executeFullSearch(_searchQuery);
@@ -1334,8 +1325,8 @@ async function loadMyCreations(container) {
                     <div class="mb-6 flex justify-between overflow-hidden">
                         <span class="text-xs font-mono text-slate-400 font-bold">${formatSimpleDate(p.created_at)}</span>
                         ${query ? (isCardSaved(query, p.id)
-                            ? `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-white text-slate-400 border border-slate-200 px-5 py-2 rounded-full transition-all hover:text-black hover:border-black">已收藏 ✓ 点击取消</button>`
-                            : `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-black text-white px-5 py-2 rounded-full shadow-lg transition-all hover:bg-slate-800">收藏这一篇</button>`) : ''}
+                            ? `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-white text-slate-400 border border-slate-200 px-5 py-2 rounded-full transition-all hover:text-black hover:border-black">已归档 ✓ 点击取消</button>`
+                            : `<button onclick="confirmQuickInquiry('${query.replace(/'/g, "\\'")}', '${p.id}', this)" class="text-[10px] font-black bg-black text-white px-5 py-2 rounded-full shadow-lg transition-all hover:bg-slate-800">归档到问题</button>`) : ''}
                     </div>
                     <div onclick="showScriptureDetail('${p.id}')" class="cursor-pointer">
                         <h2 class="text-4xl font-black mb-6 text-black group-hover:text-purple-600 transition-colors">${p.title}</h2>
@@ -1377,68 +1368,6 @@ async function loadMyCreations(container) {
         let _lastResult = null;          // { question, answer, list }
         let _answerIsPublic = false;     // 默认私人收藏
 
-        // ── 写过的话的记录 ──
-        // ⚠️ 只存在这台电脑的浏览器里（localStorage），不会上传到服务器。
-        // 真正要留下来的，是点「收藏」——那个才进他自己的账号。
-        // 这样分工的原因：搜索框里写的往往是最脆弱的时刻，
-        // 默认全部上传保存，不是一个该替用户做的决定。
-        const HISTORY_KEY = 'dw_search_history';
-        const HISTORY_MAX = 20;
-
-        function loadHistory() {
-            try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
-            catch (e) { return []; }
-        }
-        function saveHistory(list) {
-            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
-        }
-        function pushHistory(q) {
-            let list = loadHistory().filter(h => h.q !== q);
-            list.unshift({ q: q, at: Date.now() });
-            saveHistory(list.slice(0, HISTORY_MAX));
-            renderHistory();
-        }
-        function removeHistoryItem(idx) {
-            const list = loadHistory();
-            list.splice(idx, 1);
-            saveHistory(list);
-            renderHistory();
-        }
-        function clearHistory() {
-            if (!confirm('清空这台电脑上的记录？收藏过的不受影响。')) return;
-            saveHistory([]);
-            renderHistory();
-        }
-        function rerunHistory(idx) {
-            const list = loadHistory();
-            if (list[idx]) executeFullSearch(list[idx].q);
-        }
-        function toggleHistory() {
-            const el = document.getElementById('history-list');
-            const txt = document.getElementById('history-toggle-text');
-            const open = el.classList.toggle('hidden') === false;
-            txt.innerText = open ? '收起' : '最近写过的';
-        }
-        function renderHistory() {
-            const list = loadHistory();
-            const wrap = document.getElementById('history-wrap');
-            if (!wrap) return;
-            if (list.length === 0) { wrap.classList.add('hidden'); return; }
-            wrap.classList.remove('hidden');
-            document.getElementById('history-count').innerText = '(' + list.length + ')';
-            document.getElementById('history-list').innerHTML =
-                list.map((h, i) => `
-                    <div class="flex items-start gap-4">
-                        <button onclick="rerunHistory(${i})" class="flex-1 text-left text-[13px] leading-[1.8] text-slate-500 hover:text-black transition-colors line-clamp-2">${h.q}</button>
-                        <button onclick="removeHistoryItem(${i})" class="text-[11px] text-slate-300 hover:text-red-500 transition-colors flex-shrink-0 mt-1">✕</button>
-                    </div>
-                `).join('') +
-                `<div class="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center">
-                    <span class="text-[11px] text-slate-300">只存在这台电脑上，不会上传</span>
-                    <button onclick="clearHistory()" class="text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors">清空</button>
-                </div>`;
-        }
-
         async function executeFullSearch(q) {
             if (!q) return;
             _searchQuery = q;
@@ -1453,8 +1382,6 @@ async function loadMyCreations(container) {
             document.getElementById('search-keyword-display').innerText = q;
             // 顶部那个小胶囊不再显示问题——问题已经在框里了，
             // 胶囊太窄，长句子只能截断，显示了反而碍眼
-
-            pushHistory(q);
 
             const box = document.getElementById('ai-answer-box');
             const loading = document.getElementById('ai-answer-loading');
