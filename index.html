@@ -283,6 +283,26 @@
             </div>
 
             <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
+                <div class="col-span-12 md:col-span-5">
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-4">我的邀请码</h3>
+                    <div class="bg-slate-50 border border-slate-100 rounded-[30px] px-8 py-7">
+                        <div id="my-invite-code" class="text-3xl font-black tracking-[0.25em] text-black mb-5">------</div>
+                        <div class="text-[12px] leading-[1.9] text-slate-500">
+                            这张码可以给任何人，<span class="font-bold text-slate-700">转发出去也不要紧</span>——
+                            用码的人只能看，要等你在教会见到他、点了通过才能发布。
+                        </div>
+                        <button onclick="copyMyInvite(this)" class="mt-5 text-[12px] font-black bg-black text-white px-6 py-2.5 rounded-full hover:bg-slate-800 transition-all">复制</button>
+                    </div>
+                </div>
+                <div class="col-span-12 md:col-span-7">
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-4">
+                        等我确认的人<span id="pending-count" class="ml-2 text-red-500"></span>
+                    </h3>
+                    <div id="pending-list" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
                 <div class="col-span-12">
                     <div class="flex items-center justify-end mb-10">
                         <div class="flex bg-slate-50 p-1.5 rounded-2xl gap-2 border border-slate-200 shadow-inner">
@@ -318,6 +338,19 @@
     <!-- 中间主内容 -->
     <main id="main-flow-container" class="main-content z-10 relative bg-white transition-colors duration-300">
         <section class="max-w-5xl mx-auto px-12 pt-24 pb-40">
+            <!-- 待确认的人看到这一条。沉默最伤人——要让他知道自己在什么状态、下一步是什么 -->
+            <div id="pending-banner" class="hidden mb-10 bg-[#fbfaf8] border border-slate-200 rounded-[36px] px-10 py-8">
+                <div class="text-[16px] leading-[1.9] text-slate-700">
+                    <span class="font-black text-black">你已经进来了。</span>
+                    看经文、听音频、搜索、点赞、收藏都可以正常用。<br>
+                    要<span class="font-black text-black">发布内容</span>，需要邀请你的人在教会见到你之后确认一下。
+                </div>
+                <div class="mt-6 flex items-center gap-5 flex-wrap">
+                    <button onclick="openInviteModal()" class="text-[13px] font-black bg-black text-white px-7 py-3 rounded-full hover:bg-slate-800 transition-all">我有邀请码</button>
+                    <span class="text-[12px] text-slate-400 leading-[1.8]">还没人邀请你，或者等了很久没动静？在左边的「建议箱」里说一声</span>
+                </div>
+            </div>
+
             <div onclick="openPublishModal()" class="w-full bg-slate-50 border-2 border-slate-100 border-dashed rounded-full px-8 py-4 mb-8 text-center text-sm font-bold text-slate-400 cursor-pointer hover:bg-slate-100 hover:text-black transition-all">
                 + 点击此处，记录新的经文或启示...
             </div>
@@ -373,7 +406,7 @@
         <div class="custom-scroll space-y-6 flex-1 pl-2 no-scrollbar mt-4">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">项目基石</h3>
-                <button onclick="openCornerstoneModal()" class="text-[10px] font-bold text-purple-500 hover:text-purple-700">+ 记录新基石</button>
+                <button id="btn-new-cornerstone" onclick="openCornerstoneModal()" class="hidden text-[10px] font-bold text-purple-500 hover:text-purple-700">+ 记录新基石</button>
             </div>
             <div id="sidebar-cornerstones-list" class="space-y-4"></div>
         </div>
@@ -469,6 +502,50 @@
     </div>
 
     <!-- ================= 关联经文与删除弹窗 ================= -->
+    <!-- 新人填邀请码 -->
+    <div id="invite-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1700] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="invite-modal-box" class="modal-box bg-white w-full max-w-lg rounded-3xl shadow-2xl px-10 py-9 scale-95 border border-slate-100">
+            <div class="flex justify-between items-start mb-6">
+                <h2 class="text-xl font-black text-black">填写邀请码</h2>
+                <button onclick="closeInviteModal()" class="text-slate-400 hover:text-black font-black text-xl">✕</button>
+            </div>
+            <div class="text-[13px] leading-[1.9] text-slate-500 mb-7 bg-slate-50 rounded-2xl px-6 py-5">
+                填了邀请码就能进来看和听。<span class="font-bold text-slate-700">要发布内容，需要邀请你的人在教会见到你之后确认一下。</span><br>
+                所以请填你的真实称呼，方便他认出你。
+            </div>
+            <div class="space-y-4">
+                <input id="invite-code-input" placeholder="邀请码（6 位）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all uppercase tracking-[0.2em] text-center font-black">
+                <input id="invite-myname-input" placeholder="你的称呼（邀请你的人认得的那个）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <input id="invite-from-input" placeholder="邀请你的人叫什么" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+            </div>
+            <div id="invite-error" class="text-[13px] text-red-500 mt-4 leading-[1.8]"></div>
+            <button id="btn-invite-submit" onclick="submitInvite(this)" class="mt-7 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">提交</button>
+        </div>
+    </div>
+
+    <!-- 邀请人确认新成员 -->
+    <div id="confirm-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1700] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="confirm-modal-box" class="modal-box bg-white w-full max-w-lg rounded-3xl shadow-2xl px-10 py-9 scale-95 border border-slate-100">
+            <div class="flex justify-between items-start mb-3">
+                <h2 class="text-xl font-black text-black">确认这个人</h2>
+                <button onclick="closeConfirmModal()" class="text-slate-400 hover:text-black font-black text-xl">✕</button>
+            </div>
+            <div id="confirm-who" class="text-[15px] leading-[1.9] text-slate-700 mb-6"></div>
+            <div class="text-[13px] leading-[1.9] text-slate-500 mb-7 bg-slate-50 rounded-2xl px-6 py-5">
+                <span class="font-bold text-slate-700">确认之前，最好在教会见过面。</span><br>
+                确认之后他就能在这里发布内容了。填错了可以撤销。
+            </div>
+            <div class="space-y-4">
+                <input id="confirm-role-input"     placeholder="他在教会的职分（仆人 / 牧者 / 牧师…）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <input id="confirm-church-input"   placeholder="教会" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <input id="confirm-flock-input"    placeholder="家庭牧场" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <input id="confirm-shepherd-input" placeholder="他的牧者是谁" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+            </div>
+            <div id="confirm-error" class="text-[13px] text-red-500 mt-4 leading-[1.8]"></div>
+            <button id="btn-confirm-submit" onclick="submitConfirm(this)" class="mt-7 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">确认通过</button>
+        </div>
+    </div>
+
     <div id="inquiry-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
         <div id="inquiry-modal-box" class="modal-box bg-white w-full max-w-4xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-start gap-8 mb-6">
@@ -569,7 +646,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         let _isLoginMode = true;
-        const GENESIS_CODE = "ADMIN001"; 
+        // ⚠️ 这里原本有一行 const GENESIS_CODE = "ADMIN001"
+        // 任何人按 F12 看源码就能拿到它，用它注册就直接是 active + VIP，
+        // 等于我们整套"待确认只能读"的权限，一行字符串就绕过去了。
+        // 2026-09-21 删除。创世账号已经建好，这个口子的历史使命结束了。
+        // 以后要提升某个人的身份，去 Supabase 后台改 profiles.status / role，
+        // 不要再往公开源码里写任何"万能码"。
 
         // 退出登录
         //
@@ -665,7 +747,7 @@
         async function createProfileFor(user, inviteCode) {
             let inviterId = null;
 
-            if (inviteCode && inviteCode !== GENESIS_CODE) {
+            if (inviteCode) {
                 const { data: inviterData, error: inviteErr } = await _db
                     .from('profiles')
                     .select('id')
@@ -675,16 +757,14 @@
                 inviterId = inviterData.id;
             }
 
-            const isGenesis = inviteCode === GENESIS_CODE;
-
             const newProfile = {
                 id: user.id,
                 nickname: (user.email || 'user').split('@')[0],
                 my_invite_code: generateInviteCode(),
                 inviter_id: inviterId,
-                // 只有创世码直接激活；有邀请人的和自助建档的，都是待确认
-                status: isGenesis ? 'active' : 'pending',
-                role: isGenesis ? 'VIP' : 'none'
+                // 一律待确认。没有任何一条路能让人自己把自己变成已确认成员。
+                status: 'pending',
+                role: 'none'
             };
 
             const { error: profileErr } = await _db.from('profiles').insert([newProfile]);
@@ -728,7 +808,7 @@
                     // 建档逻辑跟第三方登录那条路共用同一个函数，避免两份实现日后走偏
                     await createProfileFor(authData.user, inviteCode);
 
-                    alert(inviteCode === GENESIS_CODE ? "创世身份已确立！" : "注册成功！请静候牧者审核。");
+                    alert("注册成功！请静候牧者审核。");
                     toggleAuthMode();
                 }
             } catch (err) {
@@ -766,6 +846,227 @@
             return window.CURRENT_USER_ID || null;
         }
 
+        // ================= 身份状态 =================
+        //
+        // profiles.status 只有两个值：
+        //   'pending' —— 刚登录自动建档，身份还没人确认
+        //   'active'  —— 已确认的社区成员
+        //
+        // 待确认的人能做的事（2026-09-21 定）：
+        //   看、听、搜索、点赞、收藏/归档、提建议  —— 都可以
+        //   发经文、写背景/解读/实践、记录基石      —— 不可以
+        //
+        // 界线是「消费」和「发布」：读和反应都放开，往社区里留下内容才需要确认身份。
+        // 「提建议」故意放开——否则一个进不来的人，连"我进不去"都没地方说。
+        //
+        // ⚠️ 界面上拦只是提示，真正的拦截在数据库的 RLS 规则里。
+        // 藏按钮只是让人看不见，不是让人做不到。
+        let _myStatus = null;
+        let _myIsAdmin = false;
+        let _myInviteCode = '';
+        let _confirmTargetId = null;
+
+        async function loadMyStatus() {
+            _myStatus = null;
+            _myIsAdmin = false;
+            if (!currentUserId()) return;
+            const { data } = await _db.from('profiles')
+                .select('status, is_admin, my_invite_code').eq('id', currentUserId()).maybeSingle();
+            _myStatus = data ? data.status : null;
+            _myIsAdmin = data ? (data.is_admin === true) : false;
+            _myInviteCode = data ? (data.my_invite_code || '') : '';
+
+            // 待确认的人才看到那条说明横幅
+            const banner = document.getElementById('pending-banner');
+            if (banner) banner.classList.toggle('hidden', canWrite() || !currentUserId());
+
+            const codeEl = document.getElementById('my-invite-code');
+            if (codeEl) codeEl.innerText = _myInviteCode || '------';
+            await refreshPendingList();
+
+            // 「+ 记录新基石」只给管理员看。
+            // 注意这只是不显示，真正的拦截在数据库的触发器里——
+            // 别人照样可以在控制台里直接调 openCornerstoneModal()。
+            const btn = document.getElementById('btn-new-cornerstone');
+            if (btn) btn.classList.toggle('hidden', !_myIsAdmin);
+        }
+
+        function canWrite() {
+            return _myStatus === 'active';
+        }
+
+        // ================= 邀请与确认 =================
+        //
+        // 设计见 06_产品决策记录/2026-09-12（2026-09-21 定版）。
+        // 一句话：邀请码不设限，随便转发；真正的门是
+        // **邀请人在教会见到这个人之后，才点通过**。
+        // 技术上做不到"不可转发"，但做得到"没见过面就不能发声"。
+
+        function copyMyInvite(btn) {
+            if (!_myInviteCode) return;
+            navigator.clipboard.writeText(_myInviteCode).then(() => {
+                const old = btn.innerText;
+                btn.innerText = '已复制 ✓';
+                setTimeout(() => { btn.innerText = old; }, 2000);
+            }).catch(() => alert('复制失败，手动选一下：' + _myInviteCode));
+        }
+
+        function openInviteModal() {
+            ['invite-code-input', 'invite-myname-input', 'invite-from-input']
+                .forEach(id => document.getElementById(id).value = '');
+            document.getElementById('invite-error').innerText = '';
+            const m = document.getElementById('invite-modal');
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0');
+                document.getElementById('invite-modal-box').classList.remove('scale-95');
+            }, 10);
+        }
+        function closeInviteModal() {
+            document.getElementById('invite-modal').classList.add('opacity-0');
+            document.getElementById('invite-modal-box').classList.add('scale-95');
+            setTimeout(() => document.getElementById('invite-modal').classList.add('hidden'), 300);
+        }
+
+        async function submitInvite(btn) {
+            const err = document.getElementById('invite-error');
+            err.innerText = '';
+            btn.disabled = true; btn.innerText = '提交中…';
+            try {
+                const { error } = await _db.rpc('claim_invite', {
+                    p_code:         document.getElementById('invite-code-input').value.trim(),
+                    p_real_name:    document.getElementById('invite-myname-input').value.trim(),
+                    p_inviter_name: document.getElementById('invite-from-input').value.trim()
+                });
+                if (error) throw error;
+                closeInviteModal();
+                alert('记下了。等邀请你的人在教会见到你、点了通过，就可以发布内容了。\n\n在那之前，看、听、搜索、点赞、收藏都可以正常用。');
+                bootstrap();
+            } catch (e) {
+                err.innerText = e.message || '提交失败，再试一次';
+            } finally {
+                btn.disabled = false; btn.innerText = '提交';
+            }
+        }
+
+        // 用了我的邀请码、还等着我确认的人
+        async function refreshPendingList() {
+            const box = document.getElementById('pending-list');
+            const badge = document.getElementById('pending-count');
+            if (!box) return;
+            if (!currentUserId()) { box.innerHTML = ''; return; }
+
+            const { data } = await _db.from('profiles')
+                .select('id, real_name, nickname, inviter_name, status, created_at')
+                .eq('inviter_id', currentUserId())
+                .order('created_at', { ascending: false });
+
+            const list = data || [];
+            const waiting = list.filter(p => p.status !== 'active');
+            if (badge) badge.innerText = waiting.length ? '(' + waiting.length + ')' : '';
+
+            if (list.length === 0) {
+                box.innerHTML = '<div class="text-[13px] text-slate-400 italic py-4">还没有人用你的邀请码</div>';
+                return;
+            }
+
+            box.innerHTML = list.map(p => {
+                const name = p.real_name || p.nickname || '（没填名字）';
+                const done = p.status === 'active';
+                return `
+                <div class="bg-slate-50 border border-slate-100 rounded-[24px] px-7 py-5 flex justify-between items-start gap-5">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[15px] font-bold text-black">${name}</div>
+                        <div class="text-[12px] text-slate-400 mt-1 leading-[1.8]">
+                            ${p.inviter_name ? '他填的邀请人：' + p.inviter_name + '　·　' : ''}${formatSimpleDate(p.created_at)}
+                        </div>
+                    </div>
+                    ${done
+                      ? `<button onclick="doUnconfirm('${p.id}')" class="text-[11px] font-black text-slate-400 hover:text-red-500 flex-shrink-0 whitespace-nowrap">已通过 · 撤销</button>`
+                      : `<button onclick="openConfirmModal('${p.id}', '${(name).replace(/'/g, "\\'")}')" class="text-[11px] font-black bg-black text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex-shrink-0 whitespace-nowrap">确认</button>`}
+                </div>`;
+            }).join('');
+        }
+
+        function openConfirmModal(userId, name) {
+            _confirmTargetId = userId;
+            document.getElementById('confirm-who').innerHTML =
+                '要确认的是：<span class="font-black text-black">' + name + '</span>';
+            ['confirm-role-input','confirm-church-input','confirm-flock-input','confirm-shepherd-input']
+                .forEach(id => document.getElementById(id).value = '');
+            document.getElementById('confirm-error').innerText = '';
+            const m = document.getElementById('confirm-modal');
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0');
+                document.getElementById('confirm-modal-box').classList.remove('scale-95');
+            }, 10);
+        }
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('opacity-0');
+            document.getElementById('confirm-modal-box').classList.add('scale-95');
+            setTimeout(() => document.getElementById('confirm-modal').classList.add('hidden'), 300);
+        }
+
+        async function submitConfirm(btn) {
+            if (!_confirmTargetId) return;
+            const err = document.getElementById('confirm-error');
+            err.innerText = '';
+            btn.disabled = true; btn.innerText = '处理中…';
+            try {
+                const { error } = await _db.rpc('confirm_member', {
+                    p_user_id:  _confirmTargetId,
+                    p_role:     document.getElementById('confirm-role-input').value.trim(),
+                    p_church:   document.getElementById('confirm-church-input').value.trim(),
+                    p_flock:    document.getElementById('confirm-flock-input').value.trim(),
+                    p_shepherd: document.getElementById('confirm-shepherd-input').value.trim()
+                });
+                if (error) throw error;
+                closeConfirmModal();
+                await refreshPendingList();
+            } catch (e) {
+                err.innerText = e.message || '确认失败，再试一次';
+            } finally {
+                btn.disabled = false; btn.innerText = '确认通过';
+            }
+        }
+
+        async function doUnconfirm(userId) {
+            if (!confirm('撤销之后，这个人就不能再发布内容了。确定吗？')) return;
+            const { error } = await _db.rpc('unconfirm_member', { p_user_id: userId });
+            if (error) { alert(error.message); return; }
+            await refreshPendingList();
+        }
+
+        // 「项目基石 / 公开说明」是开发者写给社区的说明书，不是大家一起编辑的地方。
+        // 所以它的写入权限比"已确认成员"更严：只有管理员。
+        // 别人怎么参与：在建议箱提议 → 有人附议 → 采纳后由开发者写进说明里。
+        function isAdmin() {
+            return _myIsAdmin === true;
+        }
+
+        function blockedByAdmin() {
+            if (!isAdmin()) {
+                alert('「项目基石」是开发者写给大家的说明，只能由开发者修改。\n\n'
+                    + '如果你觉得哪里该补充或改动，欢迎在左边的「建议箱」提出来。\n'
+                    + '被采纳的建议会写进这里，让所有人都看到。');
+                return true;
+            }
+            return false;
+        }
+
+        // 挡下来的时候给一句解释，不要只是没反应
+        function blockedByStatus() {
+            if (!currentUserId()) { alert('登录之后才能这样做'); return true; }
+            if (!canWrite()) {
+                alert('你的身份还在确认中，暂时还不能发布内容。\n\n'
+                    + '看、听、搜索、点赞、收藏都可以正常用。\n'
+                    + '有问题可以在左边的「建议箱」里说一声。');
+                return true;
+            }
+            return false;
+        }
+
         function formatSimpleDate(iso) {
             if (!iso) return '--/--';
             const d = new Date(iso);
@@ -797,6 +1098,7 @@
                 collapsedCount.innerText = _scriptures.length;
             }
 
+            await loadMyStatus();
             await loadLikeState();
 
             refreshTasks();
@@ -1495,6 +1797,7 @@ async function loadMyCreations(container) {
         }
 
         function openPublishModal() {
+            if (blockedByStatus()) return;
             // 架构师注入：每次打开弹窗前，强制清空标题与内容的残留数据，回归极简白纸状态
             document.getElementById('new-title').value = '';
             document.getElementById('new-content').value = '';
@@ -1607,6 +1910,7 @@ async function loadMyCreations(container) {
         }
  
        async function submitDetailBackground(btn) {
+            if (blockedByStatus()) return;
             const val = document.getElementById('detail-background-input').value.trim();
             if (!val) return;
             btn.disabled = true;
@@ -1621,6 +1925,7 @@ async function loadMyCreations(container) {
         }
 
         async function submitDetailDiscourse(btn) {
+            if (blockedByStatus()) return;
             const val = document.getElementById('detail-discourse-input').value.trim();
             if (!val) return;
             btn.disabled = true;
@@ -1634,6 +1939,7 @@ async function loadMyCreations(container) {
         }
 
         async function submitDetailInstance(btn) {
+            if (blockedByStatus()) return;
             const val = document.getElementById('detail-instance-input').value.trim();
             if (!val) return;
             btn.disabled = true;
@@ -1694,6 +2000,7 @@ async function loadMyCreations(container) {
         }
 
         async function toggleLike(tableName, id, after) {
+            // 待确认的人也能点赞、收藏——他们只是不能"发布内容"
             if (!currentUserId()) { alert('登录之后才能点赞'); return; }
             try {
                 const { data, error } = await _db.rpc('toggle_like', { p_table: tableName, p_id: id });
@@ -1938,6 +2245,7 @@ async function loadMyCreations(container) {
         }
 
         function openCornerstoneModal(id = null) {
+            if (blockedByAdmin()) return;
             document.getElementById('cornerstone-modal').classList.remove('hidden');
             setTimeout(() => {
                 document.getElementById('cornerstone-modal').classList.remove('opacity-0');
