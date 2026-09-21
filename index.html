@@ -160,7 +160,9 @@
 
     <!-- ================= 灵动岛 (个人中心) ================= -->
     <div id="dynamic-island-wrapper" class="pointer-events-none fixed top-0 left-0 w-full z-[1500] flex justify-center">
-        <div id="dynamic-island" class="island-collapsed pointer-events-auto bg-black text-white shadow-2xl transition-transform duration-300 hover:scale-105 flex flex-col" onclick="toggleIsland()">
+        <div id="dynamic-island" class="island-collapsed pointer-events-auto bg-black text-white shadow-2xl transition-transform duration-300 hover:scale-105 flex flex-col relative" onclick="toggleIsland()">
+            <!-- 有人用了我的邀请码、还等着我确认。不点开也要看得见，否则不会主动去翻 -->
+            <span id="island-badge" class="hidden absolute -top-1.5 -right-1.5 z-10 min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center shadow-lg ring-2 ring-white"></span>
             <div class="flex items-center justify-between px-8 h-full w-full">
                 <div class="w-20 text-left">
                     <div id="island-date-collapsed" class="text-xs font-black tracking-tighter italic text-slate-200">--/--</div>
@@ -292,6 +294,18 @@
                             用码的人只能看，要等你在教会见到他、点了通过才能发布。
                         </div>
                         <button onclick="copyMyInvite(this)" class="mt-5 text-[12px] font-black bg-black text-white px-6 py-2.5 rounded-full hover:bg-slate-800 transition-all">复制</button>
+
+                        <!-- 这就是这个人的名字，不是"专门给邀请用的称呼"。
+                             别人输入这张码、以及以后个人主页上，看到的都是它。
+                             不填的话会显示从邮箱猜出来的昵称（比如 yangshengyuan83）。 -->
+                        <div class="mt-7 pt-6 border-t border-slate-200">
+                            <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">我的名字</div>
+                            <div class="text-[11px] text-slate-400 mb-3 leading-[1.7]">别人看到的就是这个</div>
+                            <div class="flex gap-2">
+                                <input id="my-name-input" placeholder="比如：元" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-full px-5 py-2.5 text-[14px] outline-none focus:border-black transition-all">
+                                <button onclick="saveMyName(this)" class="text-[12px] font-black bg-white border border-slate-200 text-slate-500 px-5 py-2.5 rounded-full hover:text-black hover:border-black transition-all flex-shrink-0">保存</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-span-12 md:col-span-7">
@@ -509,14 +523,16 @@
                 <h2 class="text-xl font-black text-black">填写邀请码</h2>
                 <button onclick="closeInviteModal()" class="text-slate-400 hover:text-black font-black text-xl">✕</button>
             </div>
-            <div class="text-[13px] leading-[1.9] text-slate-500 mb-7 bg-slate-50 rounded-2xl px-6 py-5">
+            <div class="text-[13px] leading-[1.9] text-slate-500 mb-7 bg-[#fbfaf8] rounded-2xl px-6 py-5">
                 填了邀请码就能进来看和听。<span class="font-bold text-slate-700">要发布内容，需要邀请你的人在教会见到你之后确认一下。</span><br>
                 所以请填你的真实称呼，方便他认出你。
             </div>
             <div class="space-y-4">
-                <input id="invite-code-input" placeholder="邀请码（6 位）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all uppercase tracking-[0.2em] text-center font-black">
+                <input id="invite-code-input" oninput="lookupInviteOwner()" placeholder="邀请码（6 位）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all uppercase tracking-[0.2em] text-center font-black">
+                <!-- 输够 6 位自动去查这张码是谁的。不用他手填邀请人名字：
+                     系统靠码匹配，手填的名字不承担任何功能，只会产生填错这种噪音。 -->
+                <div id="invite-owner" class="hidden text-[14px] leading-[1.9] text-slate-600 bg-slate-50 rounded-2xl px-6 py-4"></div>
                 <input id="invite-myname-input" placeholder="你的称呼（邀请你的人认得的那个）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
-                <input id="invite-from-input" placeholder="邀请你的人叫什么" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
             </div>
             <div id="invite-error" class="text-[13px] text-red-500 mt-4 leading-[1.8]"></div>
             <button id="btn-invite-submit" onclick="submitInvite(this)" class="mt-7 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">提交</button>
@@ -536,10 +552,19 @@
                 确认之后他就能在这里发布内容了。填错了可以撤销。
             </div>
             <div class="space-y-4">
-                <input id="confirm-role-input"     placeholder="他在教会的职分（仆人 / 牧者 / 牧师…）" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
-                <input id="confirm-church-input"   placeholder="教会" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
-                <input id="confirm-flock-input"    placeholder="家庭牧场" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <select id="confirm-role-input" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all appearance-none cursor-pointer">
+                    <option value="">他在教会的职分</option>
+                    <option value="VIP">VIP</option>
+                    <option value="仆人">仆人</option>
+                    <option value="牧者">牧者</option>
+                    <option value="牧夫">牧夫</option>
+                    <option value="牧女">牧女</option>
+                    <option value="职司">职司</option>
+                    <option value="师母">师母</option>
+                    <option value="牧师">牧师</option>
+                </select>
                 <input id="confirm-shepherd-input" placeholder="他的牧者是谁" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <input id="confirm-church-input"   placeholder="教会" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
             </div>
             <div id="confirm-error" class="text-[13px] text-red-500 mt-4 leading-[1.8]"></div>
             <button id="btn-confirm-submit" onclick="submitConfirm(this)" class="mt-7 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">确认通过</button>
@@ -864,6 +889,7 @@
         let _myStatus = null;
         let _myIsAdmin = false;
         let _myInviteCode = '';
+        let _myRealName = '';
         let _confirmTargetId = null;
 
         async function loadMyStatus() {
@@ -871,7 +897,7 @@
             _myIsAdmin = false;
             if (!currentUserId()) return;
             const { data } = await _db.from('profiles')
-                .select('status, is_admin, my_invite_code').eq('id', currentUserId()).maybeSingle();
+                .select('status, is_admin, my_invite_code, real_name').eq('id', currentUserId()).maybeSingle();
             _myStatus = data ? data.status : null;
             _myIsAdmin = data ? (data.is_admin === true) : false;
             _myInviteCode = data ? (data.my_invite_code || '') : '';
@@ -882,6 +908,10 @@
 
             const codeEl = document.getElementById('my-invite-code');
             if (codeEl) codeEl.innerText = _myInviteCode || '------';
+
+            _myRealName = (data && data.real_name) ? data.real_name : '';
+            const nameEl = document.getElementById('my-name-input');
+            if (nameEl) nameEl.value = _myRealName;
             await refreshPendingList();
 
             // 「+ 记录新基石」只给管理员看。
@@ -912,9 +942,11 @@
         }
 
         function openInviteModal() {
-            ['invite-code-input', 'invite-myname-input', 'invite-from-input']
-                .forEach(id => document.getElementById(id).value = '');
+            document.getElementById('invite-code-input').value = '';
+            // 已经填过名字的人，直接带出来，不用再打一遍
+            document.getElementById('invite-myname-input').value = _myRealName || '';
             document.getElementById('invite-error').innerText = '';
+            document.getElementById('invite-owner').classList.add('hidden');
             const m = document.getElementById('invite-modal');
             m.classList.remove('hidden');
             setTimeout(() => {
@@ -934,9 +966,8 @@
             btn.disabled = true; btn.innerText = '提交中…';
             try {
                 const { error } = await _db.rpc('claim_invite', {
-                    p_code:         document.getElementById('invite-code-input').value.trim(),
-                    p_real_name:    document.getElementById('invite-myname-input').value.trim(),
-                    p_inviter_name: document.getElementById('invite-from-input').value.trim()
+                    p_code:      document.getElementById('invite-code-input').value.trim(),
+                    p_real_name: document.getElementById('invite-myname-input').value.trim()
                 });
                 if (error) throw error;
                 closeInviteModal();
@@ -954,16 +985,28 @@
             const box = document.getElementById('pending-list');
             const badge = document.getElementById('pending-count');
             if (!box) return;
-            if (!currentUserId()) { box.innerHTML = ''; return; }
+            const islandBadge = document.getElementById('island-badge');
+            if (!currentUserId()) {
+                box.innerHTML = '';
+                if (islandBadge) islandBadge.classList.add('hidden');
+                return;
+            }
 
             const { data } = await _db.from('profiles')
-                .select('id, real_name, nickname, inviter_name, status, created_at')
+                .select('id, real_name, nickname, status, created_at')
                 .eq('inviter_id', currentUserId())
                 .order('created_at', { ascending: false });
 
             const list = data || [];
             const waiting = list.filter(p => p.status !== 'active');
             if (badge) badge.innerText = waiting.length ? '(' + waiting.length + ')' : '';
+
+            // 胶囊上的红点：不点开也能看见有人在等
+            const island = document.getElementById('island-badge');
+            if (island) {
+                island.innerText = waiting.length > 99 ? '99+' : String(waiting.length);
+                island.classList.toggle('hidden', waiting.length === 0);
+            }
 
             if (list.length === 0) {
                 box.innerHTML = '<div class="text-[13px] text-slate-400 italic py-4">还没有人用你的邀请码</div>';
@@ -978,7 +1021,7 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[15px] font-bold text-black">${name}</div>
                         <div class="text-[12px] text-slate-400 mt-1 leading-[1.8]">
-                            ${p.inviter_name ? '他填的邀请人：' + p.inviter_name + '　·　' : ''}${formatSimpleDate(p.created_at)}
+                            ${formatSimpleDate(p.created_at)}
                         </div>
                     </div>
                     ${done
@@ -988,11 +1031,46 @@
             }).join('');
         }
 
+        // 输够 6 位就去查这张码是谁的，让他知道自己是被谁邀请的。
+        // 转了几手的人也看得到源头，心里有数。
+        let _lookupTimer = null;
+        function lookupInviteOwner() {
+            const el = document.getElementById('invite-code-input');
+            const box = document.getElementById('invite-owner');
+            const code = el.value.trim();
+            clearTimeout(_lookupTimer);
+
+            if (code.length < 6) { box.classList.add('hidden'); return; }
+
+            _lookupTimer = setTimeout(async () => {
+                const { data, error } = await _db.rpc('lookup_invite_owner', { p_code: code });
+                box.classList.remove('hidden');
+                if (error || !data) {
+                    box.innerHTML = '<span class="text-red-500">没找到这张邀请码，检查一下有没有输错</span>';
+                } else {
+                    box.innerHTML = '邀请你的人是：<span class="font-black text-black">' + data + '</span>';
+                }
+            }, 300);
+        }
+
+        async function saveMyName(btn) {
+            const name = document.getElementById('my-name-input').value.trim();
+            if (!name) { alert('填一个称呼再保存'); return; }
+            const old = btn.innerText;
+            btn.disabled = true; btn.innerText = '保存中…';
+            const { error } = await _db.rpc('set_my_name', { p_name: name });
+            btn.disabled = false;
+            if (!error) _myRealName = name;
+            btn.innerText = error ? '保存失败' : '已保存 ✓';
+            if (error) console.warn(error);
+            setTimeout(() => { btn.innerText = old; }, 2000);
+        }
+
         function openConfirmModal(userId, name) {
             _confirmTargetId = userId;
             document.getElementById('confirm-who').innerHTML =
                 '要确认的是：<span class="font-black text-black">' + name + '</span>';
-            ['confirm-role-input','confirm-church-input','confirm-flock-input','confirm-shepherd-input']
+            ['confirm-role-input','confirm-church-input','confirm-shepherd-input']
                 .forEach(id => document.getElementById(id).value = '');
             document.getElementById('confirm-error').innerText = '';
             const m = document.getElementById('confirm-modal');
@@ -1018,7 +1096,8 @@
                     p_user_id:  _confirmTargetId,
                     p_role:     document.getElementById('confirm-role-input').value.trim(),
                     p_church:   document.getElementById('confirm-church-input').value.trim(),
-                    p_flock:    document.getElementById('confirm-flock-input').value.trim(),
+                    p_flock:    null,   // 家庭牧场这一项取消了（2026-09-21），数据库那一列留着不用
+
                     p_shepherd: document.getElementById('confirm-shepherd-input').value.trim()
                 });
                 if (error) throw error;
