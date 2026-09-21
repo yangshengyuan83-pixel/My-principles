@@ -161,11 +161,13 @@
     <!-- ================= 灵动岛 (个人中心) ================= -->
     <div id="dynamic-island-wrapper" class="pointer-events-none fixed top-0 left-0 w-full z-[1500] flex justify-center">
         <div id="dynamic-island" class="island-collapsed pointer-events-auto bg-black text-white shadow-2xl transition-transform duration-300 hover:scale-105 flex flex-col relative" onclick="toggleIsland()">
-            <!-- 有人用了我的邀请码、还等着我确认。不点开也要看得见，否则不会主动去翻 -->
-            <span id="island-badge" class="hidden absolute -top-1.5 -right-1.5 z-10 min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center shadow-lg ring-2 ring-white"></span>
+
             <div class="flex items-center justify-between px-8 h-full w-full">
-                <div class="w-20 text-left">
+                <div class="w-24 flex items-center gap-2">
                     <div id="island-date-collapsed" class="text-xs font-black tracking-tighter italic text-slate-200">--/--</div>
+                    <!-- 有人用了我的邀请码、还等着我确认。不点开也要看得见，否则不会主动去翻。
+                         放在胶囊内部：外侧会被 overflow:hidden 裁掉。 -->
+                    <span id="island-badge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0"></span>
                 </div>
                 <div class="flex-1 text-center overflow-hidden mx-4">
                     <span id="island-title-collapsed" class="text-[11px] font-black italic tracking-widest truncate text-white">元的个人中心</span>
