@@ -1994,6 +1994,7 @@ async function loadMyCreations(container) {
         }
 
         async function executeSilentPublish(btn) {
+            if (blockedByStatus()) return;   // ⚠️ 这里原来什么检查都没有，待确认的人直接就能发经文
             const t = document.getElementById('new-title').value.trim() || "未命名";
             const c = document.getElementById('new-content').value.trim();
             if (!c) return;
@@ -2130,16 +2131,34 @@ async function loadMyCreations(container) {
             document.getElementById('detail-instance-input').value = ""; toggleInput('instance'); refreshDetailSections(_curScripture.id);
         }
 
+        // 删除按钮本来就只对自己发的内容显示，但函数谁都能调，
+        // 所以这里真的去数据库查一遍作者是谁。
+        // （最终还是以 RLS 为准，这一层只是为了给出人话的提示而不是一个沉默的失败）
+        async function assertMine(table, id) {
+            if (!currentUserId()) { alert('登录之后才能删'); return false; }
+            const { data, error } = await _db.from(table).select('author_id').eq('id', id).maybeSingle();
+            if (error || !data) { alert('找不到这一条'); return false; }
+            if (data.author_id !== currentUserId() && !_myIsAdmin) {
+                alert('只能删自己发的内容。'); return false;
+            }
+            return true;
+        }
+
         async function deleteItem(id, table) {
-            if (confirm("确定删除吗？")) { await _db.from(table).delete().eq('id', id); refreshDetailSections(_curScripture.id); }
+            if (!confirm("确定删除吗？")) return;
+            if (!await assertMine(table, id)) return;
+            const { error } = await _db.from(table).delete().eq('id', id);
+            if (error) { alert('删除失败：' + error.message); return; }
+            refreshDetailSections(_curScripture.id);
         }
 
         // 恢复：修补5：仅仅修改了这里的极简级联删除逻辑
         async function deleteScripture(id) {
-            if (confirm("彻底删除主经文？（所有相关的背景、解读和实践将由系统自动销毁）")) {
-                await _db.from('scripture').delete().eq('id', id);
-                bootstrap(); exitDetailView();
-            }
+            if (!confirm("彻底删除主经文？（所有相关的背景、解读和实践将由系统自动销毁）")) return;
+            if (!await assertMine('scripture', id)) return;
+            const { error } = await _db.from('scripture').delete().eq('id', id);
+            if (error) { alert('删除失败：' + error.message); return; }
+            bootstrap(); exitDetailView();
         }
 
         // ================= 点赞 =================
@@ -2449,6 +2468,9 @@ async function loadMyCreations(container) {
         }
 
         async function saveCornerstone(btn) {
+            // 「+ 记录新基石」那个按钮只是对非管理员隐藏了，函数本身谁都调得到。
+            // 藏起来不等于做不到。
+            if (!_myIsAdmin) { alert('只有管理员能记录项目基石。'); return; }
             const id = document.getElementById('cornerstone-id').value;
             const title = document.getElementById('cornerstone-title').value.trim() || "未命名基石";
             const content = document.getElementById('cornerstone-content').value.trim();
