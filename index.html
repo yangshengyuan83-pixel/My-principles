@@ -193,7 +193,9 @@
                 <!-- 架构师修改 2：彻底移除巨大的 H1 标题，替换为带有呼吸灯效果 (animate-pulse) 的极简操作提示 -->
                 <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase animate-pulse mb-2">↑ 点击上方黑色胶囊即可返回主页</p>
                 <div class="mt-6 flex flex-wrap justify-center items-center gap-3 text-slate-500 text-sm font-medium tracking-widest">
-                    <span onclick="openRoleSelector()" id="profile-role" class="text-black border border-slate-200 bg-slate-50 px-4 py-1.5 rounded-full font-black cursor-pointer hover:bg-slate-100 transition-colors">👤 身份</span>
+                    <!-- ⚠️ 身份只读。原来点一下就能自己选「牧师」，等于绕过整套确认机制。
+                         它的来源是 profiles.role，由邀请人在确认那一步填。 -->
+                    <span id="profile-role" title="身份由邀请你的人在确认时填写，不能自己修改" class="text-black border border-slate-200 bg-slate-50 px-4 py-1.5 rounded-full font-black">👤 身份</span>
                     <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
                     <span onclick="editProfileInfo('church')" id="profile-church" class="text-purple-600 border border-purple-100 bg-purple-50 px-4 py-1.5 rounded-full font-black cursor-pointer hover:bg-purple-100 transition-colors">⛪ 教会名</span>
                     <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
@@ -892,6 +894,7 @@
         let _myIsAdmin = false;
         let _myInviteCode = '';
         let _myRealName = '';
+        let _myProfile = null;   // 数据库里那份档案，界面显示身份/教会时以它为准
         let _confirmTargetId = null;
 
         async function loadMyStatus() {
@@ -899,7 +902,8 @@
             _myIsAdmin = false;
             if (!currentUserId()) return;
             const { data } = await _db.from('profiles')
-                .select('status, is_admin, my_invite_code, real_name').eq('id', currentUserId()).maybeSingle();
+                .select('status, is_admin, my_invite_code, real_name, role, church_name, shepherd_name, region, state, country')
+                .eq('id', currentUserId()).maybeSingle();
             _myStatus = data ? data.status : null;
             _myIsAdmin = data ? (data.is_admin === true) : false;
             _myInviteCode = data ? (data.my_invite_code || '') : '';
@@ -911,6 +915,7 @@
             const codeEl = document.getElementById('my-invite-code');
             if (codeEl) codeEl.innerText = _myInviteCode || '------';
 
+            _myProfile = data || null;
             _myRealName = (data && data.real_name) ? data.real_name : '';
             const nameEl = document.getElementById('my-name-input');
             if (nameEl) nameEl.value = _myRealName;
@@ -1195,15 +1200,25 @@
 
         // ================= 教会属地及身份信息逻辑 =================
         function loadProfileInfo() {
-            const info = JSON.parse(localStorage.getItem('user_profile_info') || '{}');
-            document.getElementById('profile-role').innerHTML = '👤 ' + (info.role || '身份');
-            document.getElementById('profile-church').innerHTML = '⛪ ' + (info.church || '教会名');
-            document.getElementById('profile-region').innerText = info.region || '区域';
-            document.getElementById('profile-state').innerText = info.state || '州';
-            document.getElementById('profile-country').innerText = info.country || '国家';
+            // ⚠️ 身份和教会以**数据库**为准，不要用 localStorage。
+            // 那份是早期留下的，只存在当前这台电脑的浏览器里——
+            // 换个账号、换台设备就全空了，而且它也不会随着"被确认"而更新。
+            // 真正的来源是 profiles 表：role 和 church_name，在确认那一步写进去的。
+            // 区域/州/国家暂时还留在 localStorage（数据库里还没有这几列）。
+            const role   = (_myProfile && _myProfile.role && _myProfile.role !== 'none')
+                            ? _myProfile.role
+                            : (canWrite() ? '成员' : '身份待确认');
+            const church = (_myProfile && _myProfile.church_name) ? _myProfile.church_name : '教会名';
+
+            document.getElementById('profile-role').innerHTML = '👤 ' + role;
+            document.getElementById('profile-church').innerHTML = '⛪ ' + church;
+            const P = _myProfile || {};
+            document.getElementById('profile-region').innerText  = P.region  || '区域';
+            document.getElementById('profile-state').innerText   = P.state   || '州';
+            document.getElementById('profile-country').innerText = P.country || '国家';
             
             // 架构师注入：动态联动更新“教会人员”标题
-            const churchDisplay = (info.church && info.church !== '教会名') ? info.church + ' ' : '';
+            const churchDisplay = (church && church !== '教会名') ? church + ' ' : '';
             const rolesHeader = document.getElementById('roles-header-title');
             if (rolesHeader) {
                 rolesHeader.innerText = churchDisplay + '教会人员';
@@ -1226,26 +1241,33 @@
             }, 300);
         }
 
+        // ⚠️ 2026-09-21 停用。原来点一下就能把自己设成「牧师」，
+        // 整套"邀请人确认才给身份"的机制会被这一个按钮废掉。
+        // 身份现在只能走 confirm_member()，由邀请人填。
         function selectRole(roleName) {
-            const info = JSON.parse(localStorage.getItem('user_profile_info') || '{}');
-            info.role = roleName;
-            localStorage.setItem('user_profile_info', JSON.stringify(info));
-            loadProfileInfo();
+            alert('身份由邀请你的人在教会见到你之后确认填写，不能自己修改。');
             closeRoleSelector();
         }
 
-        function editProfileInfo(key) {
-            const placeholders = {
-                church: '教会名', region: '区域', state: '州', country: '国家'
-            };
-            const info = JSON.parse(localStorage.getItem('user_profile_info') || '{}');
-            const currentVal = info[key] || '';
-            const newVal = prompt(`请输入${placeholders[key]}:`, currentVal);
-            if (newVal !== null) {
-                info[key] = newVal.trim();
-                localStorage.setItem('user_profile_info', JSON.stringify(info));
-                loadProfileInfo();
-            }
+        // 教会 / 区域 / 州 / 国家是自己填的，存数据库（原来存 localStorage，换设备就没了）。
+        // ⚠️ 身份不在这里——那个只能由邀请人在确认时填。
+        async function editProfileInfo(key) {
+            if (!currentUserId()) { alert('登录之后才能填'); return; }
+            const placeholders = { church: '教会名', region: '区域', state: '州', country: '国家' };
+            const fieldMap = { church: 'church_name', region: 'region', state: 'state', country: 'country' };
+
+            const current = (_myProfile && _myProfile[fieldMap[key]]) || '';
+            const newVal = prompt('请输入' + placeholders[key] + '：', current);
+            if (newVal === null) return;
+
+            const payload = { p_church: null, p_region: null, p_state: null, p_country: null };
+            payload['p_' + key] = newVal.trim();
+
+            const { error } = await _db.rpc('set_my_profile_info', payload);
+            if (error) { alert('保存失败：' + error.message); return; }
+
+            await loadMyStatus();   // 重新读一遍，界面跟着更新
+            loadProfileInfo();
         }
 
         // ================= 灵动岛与档案库交互 =================
