@@ -617,6 +617,22 @@
     </div>
 
     <!-- ================= 经文详情视图 ================= -->
+    <!-- 填教会/地点的弹窗。原来用 prompt()，没法边打边提示，
+         结果就是 springvale / springval / Springvle 各填各的，同一个地方散成三份。 -->
+    <div id="field-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1700] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="field-modal-box" class="modal-box bg-white w-full max-w-md rounded-3xl shadow-2xl px-9 py-8 scale-95 border border-slate-100">
+            <div class="flex justify-between items-start mb-5">
+                <h2 id="field-modal-title" class="text-xl font-black text-black"></h2>
+                <button onclick="closeFieldModal()" class="text-slate-400 hover:text-black font-black text-xl">✕</button>
+            </div>
+            <input id="field-modal-input" autocomplete="off"
+                   class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+            <div id="field-modal-hint" class="text-[12px] text-slate-400 mt-3 leading-[1.7]">别人已经填过的会在下面浮出来，能点就点，不要自己另起一个写法。</div>
+            <div id="field-modal-suggest" class="mt-3 space-y-1 max-h-56 overflow-y-auto custom-scroll"></div>
+            <button onclick="submitFieldModal(this)" class="mt-6 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">保存</button>
+        </div>
+    </div>
+
     <div id="detail-view" class="fixed inset-0 bg-white z-[800] hidden overflow-y-auto custom-scroll scroll-smooth transition-colors duration-300">
         <div class="sticky top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 transition-colors px-12 py-5">
             <div class="max-w-5xl mx-auto flex items-center justify-between">
@@ -1251,22 +1267,81 @@
 
         // 教会 / 区域 / 州 / 国家是自己填的，存数据库（原来存 localStorage，换设备就没了）。
         // ⚠️ 身份不在这里——那个只能由邀请人在确认时填。
-        async function editProfileInfo(key) {
+        const FIELD_LABEL = { church: '教会名', region: '区域', state: '州', country: '国家' };
+        const FIELD_COL   = { church: 'church_name', region: 'region', state: 'state', country: 'country' };
+        let _editingField = null;
+
+        function editProfileInfo(key) {
             if (!currentUserId()) { alert('登录之后才能填'); return; }
-            const placeholders = { church: '教会名', region: '区域', state: '州', country: '国家' };
-            const fieldMap = { church: 'church_name', region: 'region', state: 'state', country: 'country' };
+            _editingField = key;
+            document.getElementById('field-modal-title').innerText = '填写' + FIELD_LABEL[key];
+            const input = document.getElementById('field-modal-input');
+            input.value = (_myProfile && _myProfile[FIELD_COL[key]]) || '';
+            input.placeholder = FIELD_LABEL[key];
+            document.getElementById('field-modal-suggest').innerHTML = '';
 
-            const current = (_myProfile && _myProfile[fieldMap[key]]) || '';
-            const newVal = prompt('请输入' + placeholders[key] + '：', current);
-            if (newVal === null) return;
+            input.oninput = onFieldInput;
+            input.onkeydown = e => { if (e.key === 'Enter') document.querySelector('#field-modal-box button:last-of-type').click(); };
+            document.getElementById('field-modal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('field-modal').classList.remove('opacity-0');
+                document.getElementById('field-modal-box').classList.remove('scale-95');
+                input.focus();
+                loadFieldSuggest();      // 一打开就先把已有的列出来
+            }, 10);
+        }
 
+        function closeFieldModal() {
+            document.getElementById('field-modal').classList.add('opacity-0');
+            document.getElementById('field-modal-box').classList.add('scale-95');
+            setTimeout(() => document.getElementById('field-modal').classList.add('hidden'), 300);
+        }
+
+        // 边打边查。加个 250ms 的停顿，不然每敲一个字母就发一次请求。
+        let _suggestTimer = null;
+        function onFieldInput() {
+            clearTimeout(_suggestTimer);
+            _suggestTimer = setTimeout(loadFieldSuggest, 250);
+        }
+
+        async function loadFieldSuggest() {
+            if (!_editingField) return;
+            const q = document.getElementById('field-modal-input').value.trim();
+            const box = document.getElementById('field-modal-suggest');
+
+            const { data, error } = await _db.rpc('suggest_profile_values', {
+                p_field: _editingField, p_q: q
+            });
+            if (error || !data || !data.length) { box.innerHTML = ''; return; }
+
+            box.innerHTML = data.map(r => {
+                const v = String(r.value).replace(/"/g, '&quot;');
+                return '<div onclick="pickFieldSuggest(&quot;' + v + '&quot;)" ' +
+                       'class="flex justify-between items-center px-5 py-3 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">' +
+                       '<span class="text-[15px] font-bold text-slate-800">' + v + '</span>' +
+                       '<span class="text-[11px] text-slate-400">' + r.n + ' 人</span></div>';
+            }).join('');
+        }
+
+        function pickFieldSuggest(v) {
+            document.getElementById('field-modal-input').value = v;
+            document.getElementById('field-modal-suggest').innerHTML = '';
+        }
+
+        async function submitFieldModal(btn) {
+            const val = document.getElementById('field-modal-input').value.trim();
+            if (!val) { alert('还没填'); return; }
+
+            btn.disabled = true; btn.innerText = '保存中…';
             const payload = { p_church: null, p_region: null, p_state: null, p_country: null };
-            payload['p_' + key] = newVal.trim();
+            payload['p_' + _editingField] = val;
 
             const { error } = await _db.rpc('set_my_profile_info', payload);
+            btn.disabled = false; btn.innerText = '保存';
             if (error) { alert('保存失败：' + error.message); return; }
 
-            await loadMyStatus();   // 重新读一遍，界面跟着更新
+            closeFieldModal();
+            await loadMyStatus();
             loadProfileInfo();
         }
 
