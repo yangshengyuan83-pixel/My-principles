@@ -797,6 +797,8 @@
                 collapsedCount.innerText = _scriptures.length;
             }
 
+            await loadLikeState();
+
             refreshTasks();
             refreshCornerstones();
             loadProfileInfo();
@@ -1103,14 +1105,15 @@ async function loadMyCreations(container) {
                     uniqueScriptures = (recScriptures || []);
                 } else {
                     // --- 通道 B：“我”赞了别人的 ---
-                    const myLikedIds = JSON.parse(localStorage.getItem('creations_likes') || '[]');
+                    // 改从 likes_log 读（原来读 localStorage，换设备就空了）
+                    const myLikedIds = [..._myLikes].filter(k => k.startsWith('creations:')).map(k => k.slice(10));
                     if(myLikedIds.length > 0) {
                         const { data: givenData } = await _db.from('creations').select('*, scripture(title)').in('id', myLikedIds);
                         // 过滤掉自己赞自己的，保持书签逻辑纯粹
                         uniqueCreations = (givenData || []).filter(item => item.author_id !== window.CURRENT_USER_ID);
                     }
 
-                    const myLikedScriptureIds = JSON.parse(localStorage.getItem('my_likes') || '[]');
+                    const myLikedScriptureIds = [..._myLikes].filter(k => k.startsWith('scripture:')).map(k => k.slice(10));
                     if(myLikedScriptureIds.length > 0) {
                         const { data: givenSData } = await _db.from('scripture').select('*').in('id', myLikedScriptureIds);
                         uniqueScriptures = (givenSData || []).filter(item => item.author_id !== window.CURRENT_USER_ID);
@@ -1333,7 +1336,7 @@ async function loadMyCreations(container) {
                         <p class="text-slate-500 text-lg line-clamp-3 font-light">${p.content}</p>
                     </div>
                     <div class="mt-8 pt-6 border-t border-slate-50 flex gap-6 items-center transition-colors">
-                        <button onclick="likeScripture('${p.id}')" class="text-[10px] font-black text-slate-400 hover:text-red-500 transition-colors">❤️ 点赞 ${p.likes_count || 0}</button>
+                        ${likeButtonHtml('scripture', p.id, p.likes_count, `likeScripture('${p.id}')`)}
                         
                         <!-- 架构师修正：极简删除按钮，利用 author_id 进行精确的权限拦截 -->
                         ${p.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteScripture('${p.id}')" class="text-[10px] font-black tracking-widest text-red-300 hover:text-red-500 transition-colors uppercase">删除</button>` : ''}
@@ -1574,7 +1577,7 @@ async function loadMyCreations(container) {
                     <div class="text-[16px] leading-[1.8] mb-2 text-slate-800">${d.content}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员'} ${formatSimpleDate(d.created_at)}</span>
-                        <button onclick="likeItem('${d.id}', 'creations')" class="text-[10px] font-black text-slate-400 hover:text-red-500 transition-colors">❤️ 点赞 ${d.likes_count || 0}</button>
+                        ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>
@@ -1585,7 +1588,7 @@ async function loadMyCreations(container) {
                     <div class="text-[16px] leading-[1.8] mb-2 text-black">${d.content}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员'} ${formatSimpleDate(d.created_at)}</span>
-                        <button onclick="likeItem('${d.id}', 'creations')" class="text-[10px] font-black text-slate-400 hover:text-red-500 transition-colors">❤️ 点赞 ${d.likes_count || 0}</button>
+                        ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>
@@ -1596,7 +1599,7 @@ async function loadMyCreations(container) {
                     <div class="text-[16px] leading-[1.8] mb-2 text-black">"${d.content}"</div>
                     <div class="flex items-center gap-4 border-t border-black/5 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员'} ${formatSimpleDate(d.created_at)}</span>
-                        <button onclick="likeItem('${d.id}', 'creations')" class="text-[10px] font-black text-slate-400 hover:text-red-500 transition-colors">❤️ 点赞 ${d.likes_count || 0}</button>
+                        ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>
@@ -1655,28 +1658,61 @@ async function loadMyCreations(container) {
             }
         }
 
-        // 注：点赞改走 bump_likes 这个数据库函数（2026-08-06 加固数据库权限时一并修的）。
-        // 原因：现在 UPDATE 权限锁定成"只能改自己发的内容"，但点赞是"任何人都能给任何人点赞"，
-        // 直接 update likes_count 在给别人的内容点赞时会被权限规则挡住（悄悄地 0 行生效，不报错但也不生效）。
-        // bump_likes 是数据库那边单独开的一个安全通道，只允许改 likes_count 这一个字段，不受"只能改自己的"限制。
-        async function likeItem(id, tableName) {
-            let likes = JSON.parse(localStorage.getItem(tableName + '_likes') || '[]');
-            const isLiked = likes.includes(id);
+        // ================= 点赞 =================
+        //
+        // 2026-09-21 改造：原来点赞记录只存在浏览器的 localStorage 里，后果是
+        // 换个浏览器就忘了你赞过什么、可以重复再赞一次（数字虚高）、
+        // 服务器上也查不到谁赞过谁。
+        //
+        // 现在记录进 likes_log 表，主键是 (user_id, target_table, target_id)，
+        // **数据库层面就杜绝了同一个人重复点赞**。
+        //
+        // 点赞和取消都走 toggle_like 这个数据库函数。为什么不在前端分两步做：
+        // likes_log 和 likes_count 必须一起改，分开做的话中间断网就会对不上
+        // （记录有了但数字没加，或者反过来）。放进一个函数里是原子的。
+
+        // 当前用户赞过的东西，元素形如 "scripture:<id>" / "creations:<id>"
+        let _myLikes = new Set();
+
+        async function loadLikeState() {
+            _myLikes = new Set();
+            if (!currentUserId()) return;
+            const { data } = await _db.from('likes_log')
+                .select('target_table, target_id')
+                .eq('user_id', currentUserId());
+            (data || []).forEach(r => _myLikes.add(r.target_table + ':' + r.target_id));
+        }
+
+        function hasLiked(tableName, id) {
+            return _myLikes.has(tableName + ':' + id);
+        }
+
+        // 画一个点赞按钮。赞过的显示实心红心 + 红字，没赞过的显示空心 + 灰字。
+        function likeButtonHtml(tableName, id, count, onclickExpr) {
+            const liked = hasLiked(tableName, id);
+            return `<button onclick="${onclickExpr}" class="text-[10px] font-black transition-colors ${liked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}">${liked ? '❤️' : '🤍'} 点赞 ${count || 0}</button>`;
+        }
+
+        async function toggleLike(tableName, id, after) {
+            if (!currentUserId()) { alert('登录之后才能点赞'); return; }
             try {
-                if (isLiked) likes = likes.filter(i => i !== id); else likes.push(id);
-                localStorage.setItem(tableName + '_likes', JSON.stringify(likes));
-                await _db.rpc('bump_likes', { target_table: tableName, target_id: id, delta: isLiked ? -1 : 1 });
-                refreshDetailSections(_curScripture.id);
-            } catch (err) { console.error(err); }
+                const { data, error } = await _db.rpc('toggle_like', { p_table: tableName, p_id: id });
+                if (error) throw error;
+                const key = tableName + ':' + id;
+                if (data && data.liked) _myLikes.add(key); else _myLikes.delete(key);
+                if (after) after();
+            } catch (err) {
+                console.error('点赞失败：', err);
+                alert('点赞没成功，检查一下网络再试');
+            }
+        }
+
+        async function likeItem(id, tableName) {
+            await toggleLike(tableName, id, () => refreshDetailSections(_curScripture.id));
         }
 
         async function likeScripture(id) {
-            let likes = JSON.parse(localStorage.getItem('my_likes') || '[]');
-            const isLiked = likes.includes(id);
-            if (isLiked) likes = likes.filter(i => i !== id); else likes.push(id);
-            localStorage.setItem('my_likes', JSON.stringify(likes));
-            await _db.rpc('bump_likes', { target_table: 'scripture', target_id: id, delta: isLiked ? -1 : 1 });
-            bootstrap();
+            await toggleLike('scripture', id, () => bootstrap());
         }
 
         // ================= 建议箱 =================
