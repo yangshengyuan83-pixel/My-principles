@@ -455,6 +455,9 @@
             <input id="new-title" placeholder="一句话标题或核心主题..." class="w-full bg-transparent outline-none text-2xl font-black tracking-tighter mb-4 text-black placeholder-slate-200">
             <textarea id="new-content" placeholder="在此处输入经文原文..." class="w-full bg-slate-50 p-5 rounded-2xl outline-none text-[16px] text-slate-600 min-h-[100px] resize-none leading-relaxed mb-4 border border-slate-100 focus:border-slate-300 transition-colors"></textarea>
             <div class="flex justify-end gap-6 items-center">
+                <!-- 自动任务发布时会勾上这个。人自己写的时候不勾。
+                     加在表单里而不是事后补标记——事后那一步一定会有人忘。 -->
+                <label class="flex items-center gap-2 mr-auto text-[11px] text-slate-400 cursor-pointer select-none hover:text-slate-600 transition-colors"><input type="checkbox" id="new-is-ai" class="accent-slate-700 w-3.5 h-3.5 cursor-pointer">这是 AI 写的</label>
                 <button onclick="closePublishModal()" class="text-xs font-black tracking-widest text-slate-400 hover:text-black">取消</button>
                 <button id="btn-publish" onclick="executeSilentPublish(this)" class="btn-black bg-black text-white px-10 py-3 text-xs shadow-lg">确认提交</button>
             </div>
@@ -659,6 +662,7 @@
                 <div id="form-background" class="hidden mt-3">
                     <textarea id="detail-background-input" placeholder="在此输入背景补充..." class="w-full bg-white text-[15px] text-black p-4 rounded-xl outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
                     <div class="flex justify-end items-center gap-6 mt-3">
+                        <label class="flex items-center gap-2 mr-auto text-[11px] text-slate-400 cursor-pointer select-none hover:text-slate-600 transition-colors"><input type="checkbox" id="background-is-ai" class="accent-slate-700 w-3.5 h-3.5 cursor-pointer">这是 AI 写的</label>
                         <button onclick="toggleInput('background')" class="text-[11px] font-black text-slate-400 hover:text-black transition-colors">取消</button>
                         <button onclick="submitDetailBackground(this)" class="btn-black bg-black text-white px-8 py-2.5 text-[11px]">上传</button>
                     </div>
@@ -672,6 +676,7 @@
                 <div id="form-discourse" class="hidden mt-3">
                     <textarea id="detail-discourse-input" placeholder="输入你的启发..." class="w-full bg-white text-[15px] text-black p-4 rounded-xl outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
                     <div class="flex justify-end items-center gap-6 mt-3">
+                        <label class="flex items-center gap-2 mr-auto text-[11px] text-slate-400 cursor-pointer select-none hover:text-slate-600 transition-colors"><input type="checkbox" id="discourse-is-ai" class="accent-slate-700 w-3.5 h-3.5 cursor-pointer">这是 AI 写的</label>
                         <button onclick="toggleInput('discourse')" class="text-[11px] font-black text-slate-400 hover:text-black transition-colors">取消</button>
                         <button onclick="submitDetailDiscourse(this)" class="btn-black bg-black text-white px-8 py-2.5 text-[11px]">上传</button>
                     </div>
@@ -685,6 +690,7 @@
                 <div id="form-instance" class="hidden mt-3">
                     <textarea id="detail-instance-input" placeholder="分享见证..." class="w-full notebook-style text-[15px] text-black outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
                     <div class="flex justify-end items-center gap-6 mt-3">
+                        <label class="flex items-center gap-2 mr-auto text-[11px] text-slate-400 cursor-pointer select-none hover:text-slate-600 transition-colors"><input type="checkbox" id="instance-is-ai" class="accent-slate-700 w-3.5 h-3.5 cursor-pointer">这是 AI 写的</label>
                         <button onclick="toggleInput('instance')" class="text-[11px] font-black text-slate-400 hover:text-black transition-colors">取消</button>
                         <button onclick="submitDetailInstance(this)" class="btn-black bg-black text-white px-8 py-2.5 text-[11px]">上传</button>
                     </div>
@@ -1217,6 +1223,14 @@
                 return true;
             }
             return false;
+        }
+
+        // 一段内容底下署什么名。
+        // AI 写的必须标出来——2026-09-22 之前所有内容都是 AI 写的，
+        // 却显示成「社区成员」，读者会以为是教会里某个弟兄写的，比显示真名更误导。
+        function authorLabel(d) {
+            if (d.is_ai) return 'AI';
+            return d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员';
         }
 
         function formatSimpleDate(iso) {
@@ -2036,6 +2050,7 @@ async function loadMyCreations(container) {
             if (blockedByStatus()) return;
             // 架构师注入：每次打开弹窗前，强制清空标题与内容的残留数据，回归极简白纸状态
             document.getElementById('new-title').value = '';
+            document.getElementById('new-is-ai').checked = false;
             document.getElementById('new-content').value = '';
 
             document.getElementById('publish-modal').classList.remove('hidden');
@@ -2057,7 +2072,8 @@ async function loadMyCreations(container) {
             const c = document.getElementById('new-content').value.trim();
             if (!c) return;
             btn.disabled = true;
-           const { error } = await _db.from('scripture').insert([{ title: t, content: c, author_id: window.CURRENT_USER_ID, likes_count: 0 }]);
+           const isAi = document.getElementById('new-is-ai').checked;
+           const { error } = await _db.from('scripture').insert([{ title: t, content: c, author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: isAi }]);
             
             if (error) alert(error.message); else { closePublishModal(); bootstrap(); }
             btn.disabled = false;
@@ -2116,7 +2132,7 @@ async function loadMyCreations(container) {
                 <div class="bg-white p-5 rounded-xl border border-slate-100 mb-3 group transition-colors overflow-hidden">
                     <div class="text-[16px] leading-[1.8] mb-2 text-slate-800">${d.content}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
-                        <span class="text-[10px] text-slate-400">— ${d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员'} ${formatSimpleDate(d.created_at)}</span>
+                        <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
@@ -2127,7 +2143,7 @@ async function loadMyCreations(container) {
                 <div class="book-style bg-white border border-slate-200 border-l-slate-800 group transition-colors overflow-hidden">
                     <div class="text-[16px] leading-[1.8] mb-2 text-black">${d.content}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
-                        <span class="text-[10px] text-slate-400">— ${d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员'} ${formatSimpleDate(d.created_at)}</span>
+                        <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
@@ -2138,7 +2154,7 @@ async function loadMyCreations(container) {
                 <div class="notebook-style group overflow-hidden">
                     <div class="text-[16px] leading-[1.8] mb-2 text-black">"${d.content}"</div>
                     <div class="flex items-center gap-4 border-t border-black/5 pt-2 mt-2 transition-colors">
-                        <span class="text-[10px] text-slate-400">— ${d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员'} ${formatSimpleDate(d.created_at)}</span>
+                        <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
@@ -2153,12 +2169,15 @@ async function loadMyCreations(container) {
             btn.disabled = true;
             
             // 架构师修正：捕获 error 报错，拒绝对用户隐瞒系统异常
-            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'background', author_id: window.CURRENT_USER_ID, likes_count: 0 }]);
+            const isAi = document.getElementById('background-is-ai').checked;
+            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'background', author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: isAi }]);
             
             btn.disabled = false;
             if (error) { alert("系统拒收，原因: " + error.message); return; }
             
-            document.getElementById('detail-background-input').value = ""; toggleInput('background'); refreshDetailSections(_curScripture.id);
+            document.getElementById('detail-background-input').value = "";
+            document.getElementById('background-is-ai').checked = false;   // 不清的话下次打开还勾着
+            toggleInput('background'); refreshDetailSections(_curScripture.id);
         }
 
         async function submitDetailDiscourse(btn) {
@@ -2167,12 +2186,15 @@ async function loadMyCreations(container) {
             if (!val) return;
             btn.disabled = true;
             
-            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'interpretation', author_id: window.CURRENT_USER_ID, likes_count: 0 }]);
+            const isAi = document.getElementById('discourse-is-ai').checked;
+            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'interpretation', author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: isAi }]);
             
             btn.disabled = false;
             if (error) { alert("系统拒收，原因: " + error.message); return; }
             
-            document.getElementById('detail-discourse-input').value = ""; toggleInput('discourse'); refreshDetailSections(_curScripture.id);
+            document.getElementById('detail-discourse-input').value = "";
+            document.getElementById('discourse-is-ai').checked = false;
+            toggleInput('discourse'); refreshDetailSections(_curScripture.id);
         }
 
         async function submitDetailInstance(btn) {
@@ -2181,12 +2203,15 @@ async function loadMyCreations(container) {
             if (!val) return;
             btn.disabled = true;
             
-            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'practice', author_id: window.CURRENT_USER_ID, likes_count: 0 }]);
+            const isAi = document.getElementById('instance-is-ai').checked;
+            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'practice', author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: isAi }]);
             
             btn.disabled = false;
             if (error) { alert("系统拒收，原因: " + error.message); return; }
             
-            document.getElementById('detail-instance-input').value = ""; toggleInput('instance'); refreshDetailSections(_curScripture.id);
+            document.getElementById('detail-instance-input').value = "";
+            document.getElementById('instance-is-ai').checked = false;
+            toggleInput('instance'); refreshDetailSections(_curScripture.id);
         }
 
         // 删除按钮本来就只对自己发的内容显示，但函数谁都能调，
