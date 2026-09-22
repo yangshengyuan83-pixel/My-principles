@@ -419,12 +419,14 @@
         </section>
     </main>
 
-    <!-- 右侧基石 -->
+    <!-- 右侧「公开说明」。2026-09-22 由「项目基石」改名而来。
+         数据还在 project_cornerstones 表里，表名没动——改表名要连带改一堆地方，
+         而用户看不到表名。 -->
     <aside class="w-72 border-l border-slate-100 flex flex-col p-7 h-screen bg-[#fafafa] flex-shrink-0 relative z-[90] transition-colors duration-300">
         <div class="custom-scroll space-y-6 flex-1 pl-2 no-scrollbar mt-4">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">项目基石</h3>
-                <button id="btn-new-cornerstone" onclick="openCornerstoneModal()" class="hidden text-[10px] font-bold text-purple-500 hover:text-purple-700">+ 记录新基石</button>
+                <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">公开说明</h3>
+                <button id="btn-new-cornerstone" onclick="openCornerstoneModal()" class="hidden text-[10px] font-bold text-purple-500 hover:text-purple-700">+ 写一条说明</button>
             </div>
             <div id="sidebar-cornerstones-list" class="space-y-4"></div>
         </div>
@@ -459,18 +461,18 @@
         </div>
     </div>
 
-    <!-- ================= 项目基石弹窗 ================= -->
+    <!-- ================= 公开说明弹窗 ================= -->
     <div id="cornerstone-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[900] hidden opacity-0 flex items-center justify-center p-8">
         <div id="cornerstone-modal-box" class="modal-box bg-white w-full max-w-3xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border overflow-hidden">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-black italic tracking-tighter text-black" id="cornerstone-modal-title">项目基石</h2>
+                <h2 class="text-2xl font-black italic tracking-tighter text-black" id="cornerstone-modal-title">公开说明</h2>
                 <button onclick="closeCornerstoneModal()" class="text-slate-300 hover:text-black font-black text-xl transition-colors">✕</button>
             </div>
             <input type="hidden" id="cornerstone-id">
-            <input id="cornerstone-title" placeholder="基石核心精神或标题..." class="w-full bg-transparent outline-none text-2xl font-black tracking-tighter mb-4 text-black placeholder-slate-200">
+            <input id="cornerstone-title" placeholder="这条说明讲什么？" class="w-full bg-transparent outline-none text-2xl font-black tracking-tighter mb-4 text-black placeholder-slate-200">
             <textarea id="cornerstone-content" placeholder="记录项目的核心原则、架构洞察或协作机制..." class="w-full bg-slate-50 p-5 rounded-2xl outline-none text-[15px] text-slate-600 min-h-[150px] resize-none leading-relaxed mb-4 border border-slate-100 focus:border-slate-300 transition-colors"></textarea>
             <div class="flex justify-between items-center">
-                <button id="btn-delete-cornerstone" onclick="deleteCornerstone()" class="text-xs font-black tracking-widest text-red-400 hover:text-red-600 hidden">删除此基石</button>
+                <button id="btn-delete-cornerstone" onclick="deleteCornerstone()" class="text-xs font-black tracking-widest text-red-400 hover:text-red-600 hidden">删除这条说明</button>
                 <div class="flex justify-end gap-6 items-center flex-1">
                     <button onclick="closeCornerstoneModal()" class="text-xs font-black tracking-widest text-slate-400 hover:text-black">取消</button>
                     <button onclick="saveCornerstone(this)" class="btn-black bg-black text-white px-10 py-3 text-xs shadow-lg">保存</button>
@@ -899,7 +901,7 @@
         //
         // 待确认的人能做的事（2026-09-21 定）：
         //   看、听、搜索、点赞、收藏/归档、提建议  —— 都可以
-        //   发经文、写背景/解读/实践、记录基石      —— 不可以
+        //   发经文、写背景/解读/实践、写公开说明    —— 不可以
         //
         // 界线是「消费」和「发布」：读和反应都放开，往社区里留下内容才需要确认身份。
         // 「提建议」故意放开——否则一个进不来的人，连"我进不去"都没地方说。
@@ -937,7 +939,7 @@
             if (nameEl) nameEl.value = _myRealName;
             await refreshPendingList();
 
-            // 「+ 记录新基石」只给管理员看。
+            // 「+ 写一条说明」只给管理员看。
             // 注意这只是不显示，真正的拦截在数据库的触发器里——
             // 别人照样可以在控制台里直接调 openCornerstoneModal()。
             const btn = document.getElementById('btn-new-cornerstone');
@@ -1149,7 +1151,7 @@
 
         function blockedByAdmin() {
             if (!isAdmin()) {
-                alert('「项目基石」是开发者写给大家的说明，只能由开发者修改。\n\n'
+                alert('「公开说明」是开发者写给大家的说明，只能由开发者修改。\n\n'
                     + '如果你觉得哪里该补充或改动，欢迎在左边的「建议箱」提出来。\n'
                     + '被采纳的建议会写进这里，让所有人都看到。');
                 return true;
@@ -1219,8 +1221,10 @@
             // ⚠️ 身份和教会以**数据库**为准，不要用 localStorage。
             // 那份是早期留下的，只存在当前这台电脑的浏览器里——
             // 换个账号、换台设备就全空了，而且它也不会随着"被确认"而更新。
-            // 真正的来源是 profiles 表：role 和 church_name，在确认那一步写进去的。
-            // 区域/州/国家暂时还留在 localStorage（数据库里还没有这几列）。
+            // 真正的来源是 profiles 表。
+            // role / church_name：确认那一步由邀请人写进去。
+            // church_name / region / state / country：本人自己填（set_my_profile_info）。
+            // 2026-09-21：区域/州/国家已经进数据库了，localStorage 那份彻底不用。
             const role   = (_myProfile && _myProfile.role && _myProfile.role !== 'none')
                             ? _myProfile.role
                             : (canWrite() ? '成员' : '身份待确认');
@@ -2431,14 +2435,18 @@ async function loadMyCreations(container) {
         async function refreshTasks() { refreshSidebarSuggestions(); }
 
         async function refreshCornerstones() {
-            const { data } = await _db.from('project_cornerstones').select('*').eq('user_id', currentUserId()).order('created_at', { ascending: true });
+            // ⚠️ 2026-09-22：去掉了 .eq('user_id', currentUserId())。
+            // 这一栏原本是个人笔记，只显示自己写的；改成「公开说明」之后
+            // 必须所有人都看得到，否则开发者写完，别人那边还是一片空白。
+            const { data } = await _db.from('project_cornerstones')
+                .select('*').order('created_at', { ascending: true });
             _cornerstones = data || [];
             document.getElementById('sidebar-cornerstones-list').innerHTML = _cornerstones.map(c => `
                 <div onclick="openCornerstoneModal('${c.id}')" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer group relative">
                     <strong class="text-xs font-black text-purple-600 mb-2 block tracking-tight truncate group-hover:text-black transition-colors">${c.title}</strong>
                     <p class="text-[11px] text-slate-500 line-clamp-4 leading-relaxed font-medium">${c.content}</p>
                 </div>
-            `).join('') || '<div class="text-[10px] text-slate-400 italic">您还没有添加任何项目基石。</div>';
+            `).join('') || '<div class="text-[10px] text-slate-400 italic">还没有写任何说明。</div>';
         }
 
         function openCornerstoneModal(id = null) {
@@ -2454,10 +2462,10 @@ async function loadMyCreations(container) {
             const modalTitle = document.getElementById('cornerstone-modal-title');
 
             if (id) {
-                const c = _cornerstones.find(x => x.id === id); modalTitle.innerText = "查看/编辑基石";
+                const c = _cornerstones.find(x => x.id === id); modalTitle.innerText = "查看 / 编辑说明";
                 idInput.value = c.id; titleInput.value = c.title; contentInput.value = c.content; deleteBtn.classList.remove('hidden');
             } else {
-                modalTitle.innerText = "记录新基石"; idInput.value = ""; titleInput.value = ""; contentInput.value = ""; deleteBtn.classList.add('hidden');
+                modalTitle.innerText = "写一条说明"; idInput.value = ""; titleInput.value = ""; contentInput.value = ""; deleteBtn.classList.add('hidden');
             }
         }
 
@@ -2468,13 +2476,13 @@ async function loadMyCreations(container) {
         }
 
         async function saveCornerstone(btn) {
-            // 「+ 记录新基石」那个按钮只是对非管理员隐藏了，函数本身谁都调得到。
+            // 「+ 写一条说明」那个按钮只是对非管理员隐藏了，函数本身谁都调得到。
             // 藏起来不等于做不到。
-            if (!_myIsAdmin) { alert('只有管理员能记录项目基石。'); return; }
+            if (!_myIsAdmin) { alert('只有管理员能写公开说明。'); return; }
             const id = document.getElementById('cornerstone-id').value;
-            const title = document.getElementById('cornerstone-title').value.trim() || "未命名基石";
+            const title = document.getElementById('cornerstone-title').value.trim() || "未命名";
             const content = document.getElementById('cornerstone-content').value.trim();
-            if (!content) return alert("基石内容不能为空！");
+            if (!content) return alert("内容不能为空。");
             btn.disabled = true;
             if (id) await _db.from('project_cornerstones').update({ title, content }).eq('id', id);
             else await _db.from('project_cornerstones').insert([{ title, content, user_id: currentUserId() }]);
@@ -2483,7 +2491,7 @@ async function loadMyCreations(container) {
 
         async function deleteCornerstone() {
             const id = document.getElementById('cornerstone-id').value;
-            if (confirm("确定彻底删除这块项目基石吗？")) {
+            if (confirm("确定彻底删除这条说明吗？")) {
                 await _db.from('project_cornerstones').delete().eq('id', id); closeCornerstoneModal(); refreshCornerstones();
             }
         }
