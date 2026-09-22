@@ -923,9 +923,10 @@
             _myStatus = null;
             _myIsAdmin = false;
             if (!currentUserId()) return;
-            const { data } = await _db.from('profiles')
+            const { data, error } = await _db.from('profiles')
                 .select('status, is_admin, my_invite_code, real_name, role, church_name, shepherd_name, region, state, country')
                 .eq('id', currentUserId()).maybeSingle();
+            logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
             _myIsAdmin = data ? (data.is_admin === true) : false;
             _myInviteCode = data ? (data.my_invite_code || '') : '';
@@ -1021,10 +1022,11 @@
                 return;
             }
 
-            const { data } = await _db.from('profiles')
+            const { data, error } = await _db.from('profiles')
                 .select('id, real_name, nickname, status, created_at')
                 .eq('inviter_id', currentUserId())
                 .order('created_at', { ascending: false });
+            logReadError('我邀请的人', error);
 
             const list = data || [];
             const waiting = list.filter(p => p.status !== 'active');
@@ -1161,6 +1163,48 @@
                 return true;
             }
             return false;
+        }
+
+        // ================= 报错怎么说给人听 =================
+        //
+        // 2026-09-22 之前，好几处失败之后弹的是一句笼统的话，
+        // 最典型的是点赞失败弹「检查一下网络再试」——实际是权限问题。
+        // 照着那句提示去查网络，一辈子也查不出来。
+        //
+        // 规矩：**提示可以不专业，但不能指向错误的方向。**
+        // 不知道原因就说不知道，并且把原话带上。
+
+        const PG_ERROR_HINT = {
+            'P0001': '这是规则限制，不是故障',          // raise exception，自己写的业务规则
+            '42501': '权限不够',                        // RLS 挡下来的
+            '23503': '关联的数据不存在',                // 外键
+            '23505': '这一条已经有了',                  // 唯一键重复
+            '23502': '有必填的东西没填',                // not null
+            '22P02': '数据格式不对',
+        };
+
+        function describeError(err) {
+            if (!err) return '';
+            // 网络真的断了的时候，supabase-js 抛的是 TypeError，没有 code
+            if (!err.code && (err.message || '').match(/fetch|network|Failed to fetch/i)) {
+                return '连不上服务器，检查一下网络';
+            }
+            const hint = PG_ERROR_HINT[err.code];
+            const msg  = err.message || String(err);
+            return hint ? (hint + '：' + msg) : msg;
+        }
+
+        // 统一的失败提示。prefix 说清是哪个动作失败了，后面接真实原因。
+        // 读取用这个。读失败不弹窗（太吵），但控制台必须留下明确的一行——
+        // 否则失败的样子就是"界面一片空白"，分不清是没数据还是出错了。
+        // 2026-09-22 公开说明那次就是这样：自己看永远正常，别人一片空白。
+        function logReadError(what, err) {
+            if (err) console.error('[读取失败] ' + what + ' —— ' + describeError(err), err);
+        }
+
+        function showError(prefix, err) {
+            console.error(prefix, err);          // 完整对象留在控制台，方便排查
+            alert(prefix + '\n\n' + describeError(err));
         }
 
         // 挡下来的时候给一句解释，不要只是没反应
@@ -1690,8 +1734,9 @@ async function loadMyCreations(container) {
         async function deleteInquiryDirectly(q, e) {
             e.stopPropagation(); // 绝对拦截：阻止点击事件穿透到卡片底部的“打开详情”逻辑
             if (confirm("确定彻底删除这个问题及其所有关联记录吗？")) {
-                await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', currentUserId());
-                
+                const { error } = await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', currentUserId());
+                if (error) { showError('删除失败', error); return; }
+
                 // 静默拉取最新数据，避免页面闪烁，并留在当前面板
                 const { data: iData } = await _db.from('user_inquiries').select('*, scripture(title)').eq('user_id', currentUserId()).order('created_at', { ascending: false });
                 if (iData) {
@@ -1706,7 +1751,10 @@ async function loadMyCreations(container) {
         // 下方是您原有的代码，不用动
 
         async function updateInquiryPrivacy(question, isPub) {
-            await _db.from('user_inquiries').update({ is_public: isPub }).eq('question', question).eq('user_id', currentUserId());
+            const { error } = await _db.from('user_inquiries').update({ is_public: isPub })
+                .eq('question', question).eq('user_id', currentUserId());
+            // 这个尤其不能静默失败：用户以为自己设成了私人，其实还是公开的
+            if (error) { showError('改不了公开/私人', error); return; }
             bootstrap();
         }
 
@@ -1754,7 +1802,8 @@ async function loadMyCreations(container) {
 
         async function deleteInquiryFromModal(q) {
             if (confirm("确定彻底删除这个问题及其所有关联记录吗？")) {
-                await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', currentUserId());
+                const { error } = await _db.from('user_inquiries').delete().eq('question', q).eq('user_id', currentUserId());
+                if (error) { showError('删除失败', error); return; }
                 closeInquiryDetail();
                 bootstrap();
             }
@@ -1956,10 +2005,11 @@ async function loadMyCreations(container) {
         }
 
         async function reloadInquiries() {
-            const { data } = await _db.from('user_inquiries')
+            const { data, error } = await _db.from('user_inquiries')
                 .select('*, scripture(title)')
                 .eq('user_id', currentUserId())
                 .order('created_at', { ascending: false });
+            logReadError('收藏列表', error);
             if (data) _inquiries = data;
         }
 
@@ -2145,7 +2195,8 @@ async function loadMyCreations(container) {
         async function assertMine(table, id) {
             if (!currentUserId()) { alert('登录之后才能删'); return false; }
             const { data, error } = await _db.from(table).select('author_id').eq('id', id).maybeSingle();
-            if (error || !data) { alert('找不到这一条'); return false; }
+            if (error) { showError('查不到这一条的作者', error); return false; }
+            if (!data)  { alert('找不到这一条，可能已经被删了'); return false; }
             if (data.author_id !== currentUserId() && !_myIsAdmin) {
                 alert('只能删自己发的内容。'); return false;
             }
@@ -2188,9 +2239,10 @@ async function loadMyCreations(container) {
         async function loadLikeState() {
             _myLikes = new Set();
             if (!currentUserId()) return;
-            const { data } = await _db.from('likes_log')
+            const { data, error } = await _db.from('likes_log')
                 .select('target_table, target_id')
                 .eq('user_id', currentUserId());
+            logReadError('点赞记录', error);
             (data || []).forEach(r => _myLikes.add(r.target_table + ':' + r.target_id));
         }
 
@@ -2214,8 +2266,10 @@ async function loadMyCreations(container) {
                 if (data && data.liked) _myLikes.add(key); else _myLikes.delete(key);
                 if (after) after();
             } catch (err) {
-                console.error('点赞失败：', err);
-                alert('点赞没成功，检查一下网络再试');
+                // 原来这里写的是「检查一下网络再试」。
+                // 2026-09-21 排查时才发现真实原因是触发器挡的权限问题，
+                // 那句提示把人引向了完全错误的方向。
+                showError('点赞没成功', err);
             }
         }
 
@@ -2399,9 +2453,11 @@ async function loadMyCreations(container) {
             if (!currentUserId()) { alert('请先登录'); return; }
             try {
                 if (_sgVotedIds.has(taskId)) {
-                    await _db.from('suggestion_votes').delete().eq('task_id', taskId).eq('user_id', currentUserId());
+                    const { error } = await _db.from('suggestion_votes').delete().eq('task_id', taskId).eq('user_id', currentUserId());
+                    if (error) { showError('取消附议没成功', error); return; }
                 } else {
-                    await _db.from('suggestion_votes').insert([{ task_id: taskId, user_id: currentUserId() }]);
+                    const { error } = await _db.from('suggestion_votes').insert([{ task_id: taskId, user_id: currentUserId() }]);
+                    if (error) { showError('附议没成功', error); return; }
                 }
                 refreshSuggestions();
             } catch (e) { console.error('附议失败', e); }
@@ -2410,15 +2466,17 @@ async function loadMyCreations(container) {
 
         async function deleteSuggestion(id) {
             if (!confirm('确定删除这一条吗？')) return;
-            await _db.from('user_tasks').delete().eq('id', id);
+            const { error } = await _db.from('user_tasks').delete().eq('id', id);
+            if (error) { showError('删除失败', error); return; }
             refreshSuggestions();
         }
 
         // 侧边栏只显示我最近提的几条，点开才是完整的建议箱
         async function refreshSidebarSuggestions() {
-            const { data } = await _db.from('user_tasks').select('*')
+            const { data, error } = await _db.from('user_tasks').select('*')
                 .eq('user_id', currentUserId())
                 .order('created_at', { ascending: false }).limit(5);
+            logReadError('建议箱', error);
             const rows = data || [];
             // 侧边栏只有 288px，分成两个小节会浪费掉两行标题的空间。
             // 改成每条前面带一个类型点：紫色=建议，红色=问题。一眼能分辨，不占地方。
@@ -2442,8 +2500,9 @@ async function loadMyCreations(container) {
             // ⚠️ 2026-09-22：去掉了 .eq('user_id', currentUserId())。
             // 这一栏原本是个人笔记，只显示自己写的；改成「公开说明」之后
             // 必须所有人都看得到，否则开发者写完，别人那边还是一片空白。
-            const { data } = await _db.from('project_cornerstones')
+            const { data, error } = await _db.from('project_cornerstones')
                 .select('*').order('created_at', { ascending: true });
+            logReadError('公开说明', error);
             _cornerstones = data || [];
             document.getElementById('sidebar-cornerstones-list').innerHTML = _cornerstones.map(c => `
                 <div onclick="openCornerstoneModal('${c.id}')" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer group relative">
