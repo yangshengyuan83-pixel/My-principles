@@ -1788,7 +1788,7 @@ async function loadMyCreations(container) {
             }
 
             if (error) {
-                alert("收藏异常: " + error.message);
+                showError('收藏没成功', error);
                 if (btn) btn.disabled = false;
             }
 
