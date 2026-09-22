@@ -473,9 +473,13 @@
             <textarea id="cornerstone-content" placeholder="记录项目的核心原则、架构洞察或协作机制..." class="w-full bg-slate-50 p-5 rounded-2xl outline-none text-[15px] text-slate-600 min-h-[150px] resize-none leading-relaxed mb-4 border border-slate-100 focus:border-slate-300 transition-colors"></textarea>
             <div class="flex justify-between items-center">
                 <button id="btn-delete-cornerstone" onclick="deleteCornerstone()" class="text-xs font-black tracking-widest text-red-400 hover:text-red-600 hidden">删除这条说明</button>
-                <div class="flex justify-end gap-6 items-center flex-1">
+                <div id="cornerstone-edit-actions" class="flex justify-end gap-6 items-center flex-1">
                     <button onclick="closeCornerstoneModal()" class="text-xs font-black tracking-widest text-slate-400 hover:text-black">取消</button>
                     <button onclick="saveCornerstone(this)" class="btn-black bg-black text-white px-10 py-3 text-xs shadow-lg">保存</button>
+                </div>
+                <!-- 非管理员看到的是这个：只读，能看全文，但没有保存/删除 -->
+                <div id="cornerstone-readonly-actions" class="hidden flex justify-end flex-1">
+                    <button onclick="closeCornerstoneModal()" class="btn-black bg-black text-white px-10 py-3 text-xs shadow-lg">知道了</button>
                 </div>
             </div>
         </div>
@@ -2449,8 +2453,13 @@ async function loadMyCreations(container) {
             `).join('') || '<div class="text-[10px] text-slate-400 italic">还没有写任何说明。</div>';
         }
 
+        // 非管理员也能点开——「公开说明」的意义就是给大家看的，
+        // 侧边栏里每条只露开头一小段，不让点开等于让人读不到全文。
+        // 他们看到的是只读版本：能看，改不了也删不了。
         function openCornerstoneModal(id = null) {
-            if (blockedByAdmin()) return;
+            const canEdit = isAdmin();
+            if (!canEdit && !id) return;   // 非管理员没有"新写一条"这回事
+
             document.getElementById('cornerstone-modal').classList.remove('hidden');
             setTimeout(() => {
                 document.getElementById('cornerstone-modal').classList.remove('opacity-0');
@@ -2462,11 +2471,23 @@ async function loadMyCreations(container) {
             const modalTitle = document.getElementById('cornerstone-modal-title');
 
             if (id) {
-                const c = _cornerstones.find(x => x.id === id); modalTitle.innerText = "查看 / 编辑说明";
-                idInput.value = c.id; titleInput.value = c.title; contentInput.value = c.content; deleteBtn.classList.remove('hidden');
+                const c = _cornerstones.find(x => x.id === id);
+                modalTitle.innerText = canEdit ? "查看 / 编辑说明" : c.title;
+                idInput.value = c.id; titleInput.value = c.title; contentInput.value = c.content;
             } else {
-                modalTitle.innerText = "写一条说明"; idInput.value = ""; titleInput.value = ""; contentInput.value = ""; deleteBtn.classList.add('hidden');
+                modalTitle.innerText = "写一条说明"; idInput.value = ""; titleInput.value = ""; contentInput.value = "";
             }
+
+            // 只读模式：输入框锁住、去掉编辑器的灰底、藏掉保存和删除
+            titleInput.readOnly = !canEdit;
+            contentInput.readOnly = !canEdit;
+            contentInput.classList.toggle('bg-slate-50', canEdit);
+            contentInput.classList.toggle('border-slate-100', canEdit);
+            titleInput.classList.toggle('hidden', !canEdit);   // 只读时标题已经在弹窗抬头了，不重复显示
+
+            deleteBtn.classList.toggle('hidden', !canEdit || !id);
+            document.getElementById('cornerstone-edit-actions').classList.toggle('hidden', !canEdit);
+            document.getElementById('cornerstone-readonly-actions').classList.toggle('hidden', canEdit);
         }
 
         function closeCornerstoneModal() {
@@ -2478,22 +2499,32 @@ async function loadMyCreations(container) {
         async function saveCornerstone(btn) {
             // 「+ 写一条说明」那个按钮只是对非管理员隐藏了，函数本身谁都调得到。
             // 藏起来不等于做不到。
-            if (!_myIsAdmin) { alert('只有管理员能写公开说明。'); return; }
+            if (blockedByAdmin()) return;
             const id = document.getElementById('cornerstone-id').value;
             const title = document.getElementById('cornerstone-title').value.trim() || "未命名";
             const content = document.getElementById('cornerstone-content').value.trim();
             if (!content) return alert("内容不能为空。");
+
             btn.disabled = true;
-            if (id) await _db.from('project_cornerstones').update({ title, content }).eq('id', id);
-            else await _db.from('project_cornerstones').insert([{ title, content, user_id: currentUserId() }]);
-            btn.disabled = false; closeCornerstoneModal(); refreshCornerstones();
+            const { error } = id
+                ? await _db.from('project_cornerstones').update({ title, content }).eq('id', id)
+                : await _db.from('project_cornerstones').insert([{ title, content, user_id: currentUserId() }]);
+            btn.disabled = false;
+
+            // 原来这里完全不看 error，失败也照样关窗口刷新，
+            // 看起来像保存成功了。数据库那边有 require_admin() 触发器会拦，
+            // 拦下来的话必须让人知道。
+            if (error) { alert('保存失败：' + error.message); return; }
+            closeCornerstoneModal(); refreshCornerstones();
         }
 
         async function deleteCornerstone() {
+            if (blockedByAdmin()) return;
             const id = document.getElementById('cornerstone-id').value;
-            if (confirm("确定彻底删除这条说明吗？")) {
-                await _db.from('project_cornerstones').delete().eq('id', id); closeCornerstoneModal(); refreshCornerstones();
-            }
+            if (!confirm("确定彻底删除这条说明吗？")) return;
+            const { error } = await _db.from('project_cornerstones').delete().eq('id', id);
+            if (error) { alert('删除失败：' + error.message); return; }
+            closeCornerstoneModal(); refreshCornerstones();
         }
 
         // 修补6：添加了防刷新掉线的系统嗅探功能
