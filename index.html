@@ -193,6 +193,12 @@
                 <!-- 架构师修改 2：彻底移除巨大的 H1 标题，替换为带有呼吸灯效果 (animate-pulse) 的极简操作提示 -->
                 <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase animate-pulse mb-2">↑ 点击上方黑色胶囊即可返回主页</p>
                 <div class="mt-6 flex flex-wrap justify-center items-center gap-3 text-slate-500 text-sm font-medium tracking-widest">
+                    <!-- 名字。2026-09-23 加在最左边——App 那边的署名已经改成显示真名了，
+                         这里得有个地方让人看见自己现在叫什么、并且改得了。
+                         点一下弹输入框，走 set_my_name()。 -->
+                    <span onclick="editMyName()" id="profile-name" title="点一下改名字。别人看到的就是这个"
+                          class="text-black border border-slate-200 bg-white px-4 py-1.5 rounded-full font-black cursor-pointer hover:bg-slate-50 transition-colors">✍️ 名字</span>
+                    <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
                     <!-- ⚠️ 身份只读。原来点一下就能自己选「牧师」，等于绕过整套确认机制。
                          它的来源是 profiles.role，由邀请人在确认那一步填。 -->
                     <span id="profile-role" title="身份由邀请你的人在确认时填写，不能自己修改" class="text-black border border-slate-200 bg-slate-50 px-4 py-1.5 rounded-full font-black">👤 身份</span>
@@ -930,7 +936,7 @@
             _myIsAdmin = false;
             if (!currentUserId()) return;
             const { data, error } = await _db.from('profiles')
-                .select('status, is_admin, my_invite_code, real_name, role, church_name, shepherd_name, region, state, country')
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, shepherd_name, region, state, country')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -1292,6 +1298,9 @@
                             : (canWrite() ? '成员' : '身份待确认');
             const church = (_myProfile && _myProfile.church_name) ? _myProfile.church_name : '教会名';
 
+            const myName = (_myProfile && (_myProfile.real_name || _myProfile.nickname)) || '';
+            document.getElementById('profile-name').innerHTML =
+                '✍️ ' + (myName || '名字');
             document.getElementById('profile-role').innerHTML = '👤 ' + role;
             document.getElementById('profile-church').innerHTML = '⛪ ' + church;
             const P = _myProfile || {};
@@ -1329,6 +1338,25 @@
         function selectRole(roleName) {
             alert('身份由邀请你的人在教会见到你之后确认填写，不能自己修改。');
             closeRoleSelector();
+        }
+
+        // 改名字。走 set_my_name()，跟「我的名字」那个输入框同一个函数。
+        //
+        // 为什么这里也要有一个：2026-09-23 之后 App 的署名显示真名了
+        // （以前是「我 / 社区成员」）。名字从一个没人注意的输入框
+        // 变成了别人天天看见的东西，得在显眼的地方能改。
+        async function editMyName() {
+            if (!currentUserId()) { alert('登录之后才能改'); return; }
+            const cur = (_myProfile && (_myProfile.real_name || _myProfile.nickname)) || '';
+            const v = prompt('你的名字（别人看到的就是这个）：', cur);
+            if (v === null) return;
+            if (!v.trim()) { alert('名字不能空着'); return; }
+
+            const { error } = await _db.rpc('set_my_name', { p_name: v.trim() });
+            if (error) { showError('改名字没成功', error); return; }
+
+            await loadMyStatus();
+            loadProfileInfo();
         }
 
         // 教会 / 区域 / 州 / 国家是自己填的，存数据库（原来存 localStorage，换设备就没了）。
