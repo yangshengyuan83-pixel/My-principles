@@ -2214,9 +2214,62 @@ async function loadMyCreations(container) {
             }
         }
 
+        // 这一屏上每一段的原文，举报时要存快照用。
+        // 不从 DOM 里读回来：DOM 里那份是渲染过的 HTML，不是原文。
+        let _detailCreations = {};
+
+        // ================= 举报（写内容的人这一侧）=================
+        //
+        // 2026-09-24 补。原来只做了牧者审议那一半，忘了做"人怎么举报"这一半。
+        //
+        // 入口平时不显示，鼠标移到那一段上才淡淡浮出来——
+        // 跟 App 里"长按选中之后菜单里才有"是同一个原则：
+        // **一个常驻的「举报」按钮，等于天天提醒每个人这里可能有坏东西。**
+        // 卡片上本来就有 group 这个 class，所以 group-hover 直接能用。
+        function reportButtonHtml(d) {
+            // AI 写的那些 author_id 也是 Yuan 的，但 AI 写的东西不是谁的个人表达，
+            // 照样能举报。跟 App 里的判断保持一致。
+            const mine = d.author_id === window.CURRENT_USER_ID && !d.is_ai;
+            if (mine || !currentUserId()) return '';
+            return `<button onclick="reportItem('creations','${d.id}')" class="text-[10px] font-black text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">举报</button>`;
+        }
+
+        async function reportItem(table, id) {
+            if (!currentUserId()) { alert('登录之后才能举报'); return; }
+            const reason = prompt(
+                '举报这一段。会交给牧者们查看，他们商量后决定怎么处理。\n' +
+                '写下的内容对方看不到，也不会知道是谁报的。\n\n' +
+                '哪里有问题？（可以留空）', '');
+            if (reason === null) return;   // 点了取消
+
+            const { error } = await _db.from('reports').insert([{
+                target_table: table,
+                target_id: id,
+                reporter_id: currentUserId(),
+                // ⚠️ 存快照：作者事后一删，牧者打开就看不到被举报的是什么了。
+                content_snapshot: _detailCreations[id] || '（原文已经取不到）',
+                reason: reason.trim() || null
+            }]);
+
+            if (error) {
+                // 23505 = 撞上 unique(target_table,target_id,reporter_id)，
+                // 也就是这一段他已经报过了。这不是错误，别把数据库原话甩给人看。
+                const m = (error.message || '') + (error.code || '');
+                if (m.includes('23505') || m.includes('duplicate')) {
+                    alert('这一段你已经报过了，牧者们会看的');
+                } else {
+                    showError('没能提交', error);
+                }
+                return;
+            }
+            alert('收到了，牧者们会看。谢谢你告诉我们。');
+        }
+
         async function refreshDetailSections(sid) {
             // 架构师修正 1：一次性从新表拉取该经文的所有衍生创作
             const { data: allCreations } = await _db.from('creations').select('*').eq('scripture_id', sid).order('created_at', { ascending: false });
+            _detailCreations = {};
+            (allCreations || []).forEach(c => { _detailCreations[c.id] = c.content; });
             
             // 架构师修正 2：在前端利用 creation_type 进行极简分流
             const bgs = (allCreations || []).filter(c => c.creation_type === 'background');
@@ -2230,6 +2283,7 @@ async function loadMyCreations(container) {
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
+                        ${reportButtonHtml(d)}
                     </div>
                 </div>
             `).join('');
@@ -2241,6 +2295,7 @@ async function loadMyCreations(container) {
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
+                        ${reportButtonHtml(d)}
                     </div>
                 </div>
             `).join('');
@@ -2252,6 +2307,7 @@ async function loadMyCreations(container) {
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
+                        ${reportButtonHtml(d)}
                     </div>
                 </div>
             `).join('');
