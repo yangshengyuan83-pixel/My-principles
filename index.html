@@ -355,6 +355,12 @@
                     看看大家提了什么 →
                 </button>
                 <div id="sidebar-todo-list"></div>
+
+                <!-- 举报审议。只有牧者看得到，默认 hidden，
+                     loadMyStatus() 拿到档案之后才决定显不显示。 -->
+                <button id="btn-open-reports" onclick="openReports()" class="hidden w-full mt-8 text-left text-[11px] font-black text-slate-400 hover:text-red-500 transition-colors pl-1">
+                    举报审议 <span id="report-badge" class="text-red-500"></span>
+                </button>
             </div>
         </div>
     </nav>
@@ -531,6 +537,34 @@
             </div>
 
             <div id="sg-list" class="custom-scroll overflow-y-auto flex-1 space-y-3 pr-2"></div>
+        </div>
+    </div>
+
+    <!-- ================= 举报审议弹窗（只有牧者进得来） ================= -->
+    <!--
+        2026-09-24 建。设计定在 01_待办清单.md：
+          · 只做举报，不做人对人的屏蔽
+          · 举报不公开，被举报的人不知道
+          · 处理的是牧者们，商量后决定，Yuan 不参与裁决
+        所以这里有「附议」——跟建议箱同一个形状，几个人一起点头，不是一个人拍板。
+    -->
+    <div id="reports-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[900] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="reports-modal-box" class="modal-box bg-white w-full max-w-3xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-2xl font-black italic tracking-tighter text-black">举报审议</h2>
+                <button onclick="closeReports()" class="text-slate-300 hover:text-black font-black text-xl transition-colors">✕</button>
+            </div>
+            <p class="text-[11px] text-slate-400 mb-6 leading-[1.9]">
+                举报的人是匿名的，被举报的人不知道自己被举报了。<br>
+                这里只有牧者看得到。请商量之后再决定 —— 附议是给彼此看的，不是投票表决。
+            </p>
+
+            <div class="flex gap-6 border-b border-slate-100 mb-4">
+                <button id="rp-tab-open" onclick="switchReportTab('open')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all">待处理</button>
+                <button id="rp-tab-done" onclick="switchReportTab('done')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all">已处理</button>
+            </div>
+
+            <div id="rp-list" class="custom-scroll overflow-y-auto flex-1 space-y-3 pr-2"></div>
         </div>
     </div>
 
@@ -929,6 +963,14 @@
         let _myInviteCode = '';
         let _myRealName = '';
         let _myProfile = null;   // 数据库里那份档案，界面显示身份/教会时以它为准
+        let _myCanReviewReports = false;  // 能不能看举报（牧者，或被临时授权的人）
+
+        // 职分表来自 06_产品决策记录/2026-09-12。
+        // ⚠️ 这串名字在数据库的 can_review_reports() 里也有一份。
+        //    两处必须一致——改一处就要改另一处。
+        //    （没法只留一份：界面要在拿到档案的当下就决定显不显示入口，
+        //     不能为了这个再往服务器跑一趟。）
+        const PASTOR_ROLES = ['牧者', '牧夫', '职司', '牧师', '师母'];
         let _confirmTargetId = null;
 
         async function loadMyStatus() {
@@ -936,7 +978,7 @@
             _myIsAdmin = false;
             if (!currentUserId()) return;
             const { data, error } = await _db.from('profiles')
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, shepherd_name, region, state, country')
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, shepherd_name, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -961,6 +1003,14 @@
             // 别人照样可以在控制台里直接调 openCornerstoneModal()。
             const btn = document.getElementById('btn-new-cornerstone');
             if (btn) btn.classList.toggle('hidden', !_myIsAdmin);
+
+            // 举报审议入口。平时连这个入口都不显示——
+            // 不是牧者的人，不该知道有这么一个地方。
+            _myCanReviewReports = !!data &&
+                (PASTOR_ROLES.includes(data.role) || data.is_report_reviewer === true);
+            const rBtn = document.getElementById('btn-open-reports');
+            if (rBtn) rBtn.classList.toggle('hidden', !_myCanReviewReports);
+            if (_myCanReviewReports) refreshReportBadge();
         }
 
         function canWrite() {
@@ -1237,6 +1287,23 @@
         function authorLabel(d) {
             if (d.is_ai) return 'AI';
             return d.author_id === window.CURRENT_USER_ID ? '我' : '社区成员';
+        }
+
+        // 把用户写的东西当文字渲染，不当 HTML。
+        //
+        // ⚠️ 2026-09-24 加。举报里显示的是**别人写的原文和举报理由**——
+        // 直接往 innerHTML 里塞的话，内容里带一段 <script> 就会在牧者的浏览器里跑起来。
+        // 举报这个场景尤其危险：看的人正是权限最高的那几位。
+        //
+        // ⚠️ 建议箱（refreshSuggestions）现在还是直接塞 ${r.content}，没有转义。
+        //    那是同一类问题，只是还没改——见 01_待办清单.md。
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         function formatSimpleDate(iso) {
@@ -2332,6 +2399,145 @@ async function loadMyCreations(container) {
 
         async function likeScripture(id) {
             await toggleLike('scripture', id, () => bootstrap());
+        }
+
+        // ================= 举报审议 =================
+        //
+        // 2026-09-24 建。只有牧者进得来（入口默认 hidden，见 loadMyStatus）。
+        //
+        // ⚠️ 界面藏起来不是安全边界。真正的拦截在数据库的 RLS 里：
+        //    reports 的 SELECT 策略是 can_review_reports() or reporter_id = auth.uid()。
+        //    别人在控制台里直接调 openReports() 也只会看到一个空列表。
+
+        let _rpTab = 'open';
+        let _rpVoted = new Set();
+
+        function openReports() {
+            document.getElementById('reports-modal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('reports-modal').classList.remove('opacity-0');
+                document.getElementById('reports-modal-box').classList.remove('scale-95');
+            }, 10);
+            switchReportTab(_rpTab);
+        }
+
+        function closeReports() {
+            document.getElementById('reports-modal').classList.add('opacity-0');
+            document.getElementById('reports-modal-box').classList.add('scale-95');
+            setTimeout(() => { document.getElementById('reports-modal').classList.add('hidden'); }, 300);
+            refreshReportBadge();
+        }
+
+        function switchReportTab(tab) {
+            _rpTab = tab;
+            const on = 'text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all';
+            const off = 'text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all';
+            document.getElementById('rp-tab-open').className = tab === 'open' ? on : off;
+            document.getElementById('rp-tab-done').className = tab === 'done' ? on : off;
+            refreshReports();
+        }
+
+        // 侧边栏上那个小红字：还有几条没处理。
+        // 不弹通知、不发邮件——牧者自己来看的时候才看到。
+        async function refreshReportBadge() {
+            if (!_myCanReviewReports) return;
+            const { count, error } = await _db.from('reports')
+                .select('id', { count: 'exact', head: true }).eq('status', 'open');
+            logReadError('举报数', error);
+            const el = document.getElementById('report-badge');
+            if (el) el.innerText = count ? '· ' + count + ' 条待处理' : '';
+        }
+
+        async function refreshReports() {
+            let q = _db.from('reports').select('*').order('created_at', { ascending: false });
+            q = _rpTab === 'open' ? q.eq('status', 'open') : q.neq('status', 'open');
+            const { data, error } = await q;
+            logReadError('举报', error);
+            const rows = data || [];
+
+            // 附议一次拉回来在内存里数，不要每条发一个请求
+            const { data: votes } = await _db.from('report_votes').select('report_id,voter_id');
+            const n = {};
+            _rpVoted = new Set();
+            (votes || []).forEach(v => {
+                n[v.report_id] = (n[v.report_id] || 0) + 1;
+                if (v.voter_id === currentUserId()) _rpVoted.add(v.report_id);
+            });
+
+            const LABEL = { scripture: '经文', creations: '文字', recordings: '录音' };
+            const STAT = {
+                open: ['待处理', 'bg-red-50 text-red-500'],
+                resolved: ['已处理', 'bg-green-50 text-green-600'],
+                dismissed: ['不处理', 'bg-slate-100 text-slate-400']
+            };
+
+            document.getElementById('rp-list').innerHTML = rows.map(r => {
+                const st = STAT[r.status] || STAT.open;
+                const voted = _rpVoted.has(r.id);
+                const cnt = n[r.id] || 0;
+
+                // 录音存的 snapshot 是文件路径，放个播放器让牧者直接听原件。
+                // 文字的话 snapshot 就是举报当时那段原文——
+                // 作者事后删掉了也还在，这正是存快照的意义。
+                const body = r.target_table === 'recordings'
+                    ? `<audio controls preload="none" class="w-full mt-1" src="${SUPABASE_URL}/storage/v1/object/public/recordings/${r.content_snapshot}"></audio>`
+                    : `<div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl p-4 mt-1">${escapeHtml(r.content_snapshot || '')}</div>`;
+
+                return `
+                <div class="bg-white border border-slate-100 rounded-2xl p-5">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-[9px] font-black px-2 py-1 rounded bg-slate-100 text-slate-500">${LABEL[r.target_table] || r.target_table}</span>
+                        <span class="text-[9px] font-black px-2 py-1 rounded ${st[1]}">${st[0]}</span>
+                        <span class="text-[10px] text-slate-300 ml-auto">${formatSimpleDate(r.created_at)}</span>
+                    </div>
+                    ${r.reason ? `<div class="text-[12px] text-slate-500 leading-relaxed mb-3"><span class="font-black text-slate-400">举报理由：</span>${escapeHtml(r.reason)}</div>` : '<div class="text-[11px] text-slate-300 italic mb-3">没有写理由</div>'}
+                    ${body}
+                    ${r.resolved_note ? `<div class="mt-3 pt-3 border-t border-slate-100 text-[12px] text-slate-500 leading-relaxed"><span class="font-black text-slate-400">处理说明：</span>${escapeHtml(r.resolved_note)}</div>` : ''}
+                    <div class="flex items-center gap-4 mt-4 flex-wrap">
+                        <button onclick="toggleReportVote('${r.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">
+                            ${voted ? '✓ 我也这么看' : '+ 我也这么看'} ${cnt > 0 ? cnt : ''}
+                        </button>
+                        ${r.status === 'open' ? `
+                            <button onclick="resolveReport('${r.id}','resolved')" class="text-[11px] font-bold text-slate-400 hover:text-green-600 transition-colors ml-auto">标记已处理</button>
+                            <button onclick="resolveReport('${r.id}','dismissed')" class="text-[11px] font-bold text-slate-300 hover:text-black transition-colors">不处理</button>
+                        ` : `<button onclick="resolveReport('${r.id}','open')" class="text-[11px] font-bold text-slate-300 hover:text-black transition-colors ml-auto">重新打开</button>`}
+                    </div>
+                </div>`;
+            }).join('') || `<div class="text-[12px] text-slate-400 italic py-8 text-center">${_rpTab === 'open' ? '没有待处理的举报' : '还没有处理过的'}</div>`;
+        }
+
+        async function toggleReportVote(id) {
+            if (_rpVoted.has(id)) {
+                const { error } = await _db.from('report_votes').delete()
+                    .eq('report_id', id).eq('voter_id', currentUserId());
+                if (error) { showError('取消没成功', error); return; }
+            } else {
+                const { error } = await _db.from('report_votes')
+                    .insert([{ report_id: id, voter_id: currentUserId() }]);
+                if (error) { showError('附议没成功', error); return; }
+            }
+            refreshReports();
+        }
+
+        // 改状态。**不删举报记录**——处理完了也留着底。
+        async function resolveReport(id, status) {
+            let note = null;
+            if (status !== 'open') {
+                note = prompt('说一句怎么处理的？（其他牧者会看到，可以留空）', '');
+                if (note === null) return;   // 点了取消
+            }
+            const patch = { status: status };
+            if (status === 'open') {
+                patch.resolved_by = null; patch.resolved_at = null; patch.resolved_note = null;
+            } else {
+                patch.resolved_by = currentUserId();
+                patch.resolved_at = new Date().toISOString();
+                patch.resolved_note = note || null;
+            }
+            const { error } = await _db.from('reports').update(patch).eq('id', id);
+            if (error) { showError('没改成功', error); return; }
+            refreshReports();
+            refreshReportBadge();
         }
 
         // ================= 建议箱 =================
