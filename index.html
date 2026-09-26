@@ -196,117 +196,138 @@
              放在最左边一整条，从「退出账号」下面一直到底：
              它是一个"随时瞄一眼"的东西，不该夹在别的模块中间跟着滚。
              窄屏（lg 以下）会自动变成堆在最上面的一块，不会盖住内容。 -->
-        <div class="flex flex-col lg:flex-row gap-12 px-12 md:px-20 w-full">
+        <!-- ============ 个人中心：左中右三栏（2026-09-26 重排）============
+             每一栏有一个清楚的含义，不是把东西平均摊开：
+               左 = 教会里的人（别人）
+               中 = 我存下来的东西（最宽，Yuan 说问题收藏很重要）
+               右 = 我是谁
+             原来是从上到下一长条，邀请码那张大卡占了大半屏，
+             而"问题收藏"被挤到最底下要翻半天。**留白该给重要的东西。** -->
+        <div class="flex flex-col lg:flex-row gap-10 px-8 md:px-14 w-full">
 
-            <aside class="w-full lg:w-56 flex-shrink-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-10rem)] overflow-y-auto custom-scroll pr-1">
-                <div class="flex items-baseline justify-between mb-4">
-                    <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">教会人员</h3>
-                    <!-- 只有牧者看得到。分组是教会自己维护的，不是写死在程序里的。 -->
-                    <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
-                </div>
-                <div id="church-tree" class="text-[12px] space-y-0.5"></div>
+            <!-- ── 左：教会里的人 ────────────────────────── -->
+            <aside class="w-full lg:w-60 flex-shrink-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-9rem)] overflow-y-auto custom-scroll pr-1 space-y-8">
 
-                <div id="group-editor" class="hidden mt-6 pt-5 border-t border-slate-100">
-                    <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">分组</div>
-                    <div id="group-list" class="space-y-1 mb-4"></div>
-                    <div class="flex gap-2">
-                        <input id="new-group-lang" placeholder="语言" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-black transition-all">
-                        <input id="new-group-no" type="number" min="1" max="99" placeholder="组" class="w-12 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-[12px] outline-none focus:border-black transition-all">
-                        <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-3 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
+                <!-- 教会人员树。原来这个位置是「Hosanna 教会人员」，七个职分各两个人，
+                     **全是编的假数据**——一个看起来有 14 个人的社区实际只有 2 个人，
+                     那种界面骗的是自己。现在全部来自真实数据。 -->
+                <div>
+                    <div class="flex items-baseline justify-between mb-3">
+                        <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">教会人员</h3>
+                        <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
                     </div>
-                    <div class="text-[11px] text-slate-400 mt-2 leading-[1.8]">
-                        语言写什么都行（中文 / English / Bahasa…）。<span class="font-bold text-slate-500">删除只影响分组，不动任何人的档案。</span>
+                    <div id="church-tree" class="text-[12px] space-y-0.5"></div>
+
+                    <!-- 教会在哪。2026-09-26 从右边的档案栏挪过来，跟人员并成一块——
+                         「Hosanna 人员 / 各语言组 / Springvale · VIC · Australia」
+                         读下来是一件完整的事：这间教会有谁、在哪。
+                         ⚠️ 这三项存的是 profiles 上**这个人**的区域/州/国家，
+                         不是教会的。对 Yuan 来说两者一样，以后如果出现
+                         "人在别的城市、教会在这里"，这里要拆开。 -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 space-y-0.5 text-[12px]">
+                        <div onclick="editProfileInfo('region')" id="profile-region"
+                             class="px-2 py-1 rounded text-slate-400 cursor-pointer hover:bg-slate-50 hover:text-slate-600 transition-colors truncate">区域</div>
+                        <div onclick="editProfileInfo('state')" id="profile-state"
+                             class="px-2 py-1 rounded text-slate-400 cursor-pointer hover:bg-slate-50 hover:text-slate-600 transition-colors truncate">州</div>
+                        <div onclick="editProfileInfo('country')" id="profile-country"
+                             class="px-2 py-1 rounded text-slate-400 cursor-pointer hover:bg-slate-50 hover:text-slate-600 transition-colors truncate">国家</div>
+                    </div>
+
+                    <div id="group-editor" class="hidden mt-5 pt-4 border-t border-slate-100">
+                        <div id="group-list" class="space-y-1 mb-3"></div>
+                        <div class="flex gap-1.5">
+                            <input id="new-group-lang" placeholder="语言" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all">
+                            <input id="new-group-no" type="number" min="1" max="99" placeholder="组" class="w-11 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[12px] outline-none focus:border-black transition-all">
+                            <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-3 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-2 leading-[1.7]">
+                            语言写什么都行。<span class="font-bold text-slate-500">删组不动任何人的档案。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 我邀请的人。放在人员下面、邀请码上面——Yuan 定的位置。
+                     四年十来个人，占满一整行太空，放这一栏刚好。 -->
+                <div class="pt-6 border-t border-slate-100">
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-1">
+                        我邀请的人<span id="invited-total" class="ml-2 text-slate-300"></span>
+                    </h3>
+                    <div id="pending-count" class="text-[12px] font-bold text-red-500 mb-3 min-h-[18px]"></div>
+                    <div id="pending-list" class="space-y-2"></div>
+                </div>
+
+                <!-- 我的邀请码。原来是主区域一张大卡：3xl 大字 + 两行说明 + 一个改名输入框。
+                     ⚠️ 那个改名输入框**删了**——右边「我的档案」里本来就能改名字，
+                     同一件事两个入口，改了一个另一个不会跟着变，迟早对不上。 -->
+                <div class="pt-6 border-t border-slate-100">
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">我的邀请码</h3>
+                    <div class="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-4">
+                        <div class="flex items-center gap-2">
+                            <div id="my-invite-code" class="text-[19px] font-black tracking-[0.18em] text-black flex-1 min-w-0 truncate">------</div>
+                            <button onclick="copyMyInvite(this)" class="text-[11px] font-black bg-black text-white px-3 py-1.5 rounded-full hover:bg-slate-800 transition-all flex-shrink-0">复制</button>
+                        </div>
+                        <div class="text-[11px] leading-[1.8] text-slate-400 mt-3">
+                            给谁都行，<span class="font-bold text-slate-600">转发出去也不要紧</span>——
+                            用码的人只能看，要等你在教会见到他、点了通过才能发布。
+                        </div>
                     </div>
                 </div>
             </aside>
 
-            <div class="flex-1 min-w-0 max-w-5xl">
-            <div class="mb-12 text-center flex flex-col items-center">
-                <!-- 架构师修改 2：彻底移除巨大的 H1 标题，替换为带有呼吸灯效果 (animate-pulse) 的极简操作提示 -->
-                <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase animate-pulse mb-2">↑ 点击上方黑色胶囊即可返回主页</p>
-                <div class="mt-6 flex flex-wrap justify-center items-center gap-3 text-slate-500 text-sm font-medium tracking-widest">
-                    <!-- 名字。2026-09-23 加在最左边——App 那边的署名已经改成显示真名了，
-                         这里得有个地方让人看见自己现在叫什么、并且改得了。
-                         点一下弹输入框，走 set_my_name()。 -->
-                    <span onclick="editMyName()" id="profile-name" title="点一下改名字。别人看到的就是这个"
-                          class="text-black border border-slate-200 bg-white px-4 py-1.5 rounded-full font-black cursor-pointer hover:bg-slate-50 transition-colors">✍️ 名字</span>
-                    <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
-                    <!-- ⚠️ 身份只读。原来点一下就能自己选「牧师」，等于绕过整套确认机制。
-                         它的来源是 profiles.role，由邀请人在确认那一步填。 -->
-                    <span id="profile-role" title="身份由邀请你的人在确认时填写，不能自己修改" class="text-black border border-slate-200 bg-slate-50 px-4 py-1.5 rounded-full font-black">👤 身份</span>
-                    <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
-                    <span onclick="editProfileInfo('church')" id="profile-church" class="text-purple-600 border border-purple-100 bg-purple-50 px-4 py-1.5 rounded-full font-black cursor-pointer hover:bg-purple-100 transition-colors">⛪ 教会名</span>
-                    <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
-                    <span onclick="editProfileInfo('region')" id="profile-region" class="cursor-pointer hover:text-black transition-colors">区域</span>
-                    <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
-                    <span onclick="editProfileInfo('state')" id="profile-state" class="cursor-pointer hover:text-black transition-colors">州</span>
-                    <span class="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
-                    <span onclick="editProfileInfo('country')" id="profile-country" class="cursor-pointer hover:text-black transition-colors">国家</span>
-                </div>
-            </div>
+            <!-- ── 中：我存下来的东西 ────────────────────── -->
+            <div class="flex-1 min-w-0">
+                <p class="text-[10px] font-bold text-slate-300 tracking-widest uppercase mb-5">↑ 点击上方黑色胶囊返回主页</p>
 
-            <div class="mb-12 border-b border-slate-100 pb-10">
-                <h3 class="text-[11px] font-black tracking-widest text-slate-400 mb-6 uppercase text-center">创作与互动沉淀</h3>
-                <div class="flex justify-center gap-12 text-[13px] font-medium text-slate-500">
-                    <div onclick="openActivityModal('creations')" class="hover:text-black cursor-pointer transition-colors flex items-center gap-2 group">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors"></span>
-                        <span class="font-bold tracking-widest">我的创作</span>
-                    </div>
-                    <div onclick="openActivityModal('likes')" class="hover:text-black cursor-pointer transition-colors flex items-center gap-2 group">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-500/50 group-hover:bg-red-400 transition-colors"></span>
-                        <span class="font-bold tracking-widest">互动点赞</span>
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">问题收藏</h3>
+                    <div class="flex bg-slate-50 p-1 rounded-xl gap-1 border border-slate-200 shadow-inner">
+                        <button id="island-tab-private" onclick="toggleInquiryScope('private', event)" class="px-5 py-1.5 rounded-lg text-[11px] font-black transition-all bg-white text-black shadow-sm border border-slate-200">私人档案</button>
+                        <button id="island-tab-public" onclick="toggleInquiryScope('public', event)" class="px-5 py-1.5 rounded-lg text-[11px] font-black transition-all bg-transparent text-slate-400 hover:text-black">公开展示</button>
                     </div>
                 </div>
+                <div id="island-inquiry-list" class="space-y-2"></div>
             </div>
 
-            <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
-                <div class="col-span-12 md:col-span-5">
-                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-4">我的邀请码</h3>
-                    <div class="bg-slate-50 border border-slate-100 rounded-[30px] px-8 py-7">
-                        <div id="my-invite-code" class="text-3xl font-black tracking-[0.25em] text-black mb-5">------</div>
-                        <div class="text-[12px] leading-[1.9] text-slate-500">
-                            这张码可以给任何人，<span class="font-bold text-slate-700">转发出去也不要紧</span>——
-                            用码的人只能看，要等你在教会见到他、点了通过才能发布。
+            <!-- ── 右：我是谁 ────────────────────────────── -->
+            <aside class="w-full lg:w-60 flex-shrink-0 lg:sticky lg:top-24 lg:self-start space-y-8">
+
+                <!-- 档案。原来是一行居中的 pill，挤在一起看不清哪个能点。
+                     竖排一行一项，能点的那几项鼠标移上去会变色。 -->
+                <div>
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">我的档案</h3>
+                    <div class="space-y-1 text-[13px]">
+                        <div onclick="editMyName()" id="profile-name" title="点一下改名字。别人看到的就是这个"
+                             class="px-3 py-2 rounded-lg bg-slate-50 font-black text-black cursor-pointer hover:bg-slate-100 transition-colors truncate">✍️ 名字</div>
+                        <!-- ⚠️ 身份只读。原来点一下就能自己选「牧师」，等于绕过整套确认机制。
+                             来源是 profiles.role，由牧者在担保那一步填。 -->
+                        <div id="profile-role" title="身份由牧者在担保时填写，不能自己修改"
+                             class="px-3 py-2 rounded-lg bg-slate-50 font-black text-slate-500 truncate">👤 身份</div>
+                        <div onclick="editProfileInfo('church')" id="profile-church"
+                             class="px-3 py-2 rounded-lg bg-purple-50 text-purple-600 font-black cursor-pointer hover:bg-purple-100 transition-colors truncate">⛪ 教会名</div>
+                    </div>
+                </div>
+
+                <!-- 我的创作 / 互动点赞。
+                     2026-09-26：这两个原来是两个小字链接，我一度把上面的标题删了，
+                     Yuan 说这一块很重要——**重要的东西不该长得像脚注。**
+                     做成两张能点的卡。 -->
+                <div class="pt-6 border-t border-slate-100 space-y-2">
+                    <div onclick="openActivityModal('creations')" class="px-4 py-3 rounded-xl bg-slate-50 hover:bg-white border border-slate-100 hover:border-blue-300 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500/60"></span>
+                            <span class="text-[13px] font-black text-slate-700 group-hover:text-blue-700 transition-colors">我的创作</span>
                         </div>
-                        <button onclick="copyMyInvite(this)" class="mt-5 text-[12px] font-black bg-black text-white px-6 py-2.5 rounded-full hover:bg-slate-800 transition-all">复制</button>
-
-                        <!-- 这就是这个人的名字，不是"专门给邀请用的称呼"。
-                             别人输入这张码、以及以后个人主页上，看到的都是它。
-                             不填的话会显示从邮箱猜出来的昵称（比如 yangshengyuan83）。 -->
-                        <div class="mt-7 pt-6 border-t border-slate-200">
-                            <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">我的名字</div>
-                            <div class="text-[11px] text-slate-400 mb-3 leading-[1.7]">别人看到的就是这个</div>
-                            <div class="flex gap-2">
-                                <input id="my-name-input" placeholder="比如：元" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-full px-5 py-2.5 text-[14px] outline-none focus:border-black transition-all">
-                                <button onclick="saveMyName(this)" class="text-[12px] font-black bg-white border border-slate-200 text-slate-500 px-5 py-2.5 rounded-full hover:text-black hover:border-black transition-all flex-shrink-0">保存</button>
-                            </div>
+                        <div class="text-[11px] text-slate-400 mt-1 leading-[1.7]">我发过的经文、背景、解读、实践</div>
+                    </div>
+                    <div onclick="openActivityModal('likes')" class="px-4 py-3 rounded-xl bg-slate-50 hover:bg-white border border-slate-100 hover:border-red-300 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-500/60"></span>
+                            <span class="text-[13px] font-black text-slate-700 group-hover:text-red-700 transition-colors">互动点赞</span>
                         </div>
+                        <div class="text-[11px] text-slate-400 mt-1 leading-[1.7]">谁赞了我，我赞了谁</div>
                     </div>
                 </div>
-                <div class="col-span-12 md:col-span-7">
-                    <!-- 2026-09-26 改名。原来叫「等我确认的人」，但列表拉的是
-                         inviter_id = 我 的**全部**人，已经确认过的也在里面——
-                         名字和内容对不上。一个说谎的标题，比没有标题更糟。 -->
-                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-1">
-                        我邀请的人<span id="invited-total" class="ml-2 text-slate-300"></span>
-                    </h3>
-                    <div id="pending-count" class="text-[12px] font-bold text-red-500 mb-4 min-h-[18px]"></div>
-                    <div id="pending-list" class="space-y-3"></div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
-                <div class="col-span-12">
-                    <div class="flex items-center justify-end mb-10">
-                        <div class="flex bg-slate-50 p-1.5 rounded-2xl gap-2 border border-slate-200 shadow-inner">
-                            <button id="island-tab-private" onclick="toggleInquiryScope('private', event)" class="px-8 py-3 rounded-xl text-xs font-black transition-all bg-white text-black shadow-sm border border-slate-200">私人档案</button>
-                            <button id="island-tab-public" onclick="toggleInquiryScope('public', event)" class="px-8 py-3 rounded-xl text-xs font-black transition-all bg-transparent text-slate-400 hover:text-black">公开展示</button>
-                        </div>
-                    </div>
-                    <div id="island-inquiry-list" class="space-y-4"></div>
-                </div>
-            </div>
-            </div>
+            </aside>
         </div>
     </div>
 
@@ -977,8 +998,6 @@
 
             _myProfile = data || null;
             _myRealName = (data && data.real_name) ? data.real_name : '';
-            const nameEl = document.getElementById('my-name-input');
-            if (nameEl) nameEl.value = _myRealName;
             await refreshPendingList();
 
             // 「+ 写一条说明」只给管理员看。
@@ -1161,19 +1180,6 @@
                     box.innerHTML = '邀请你的人是：<span class="font-black text-black">' + data + '</span>';
                 }
             }, 300);
-        }
-
-        async function saveMyName(btn) {
-            const name = document.getElementById('my-name-input').value.trim();
-            if (!name) { alert('填一个称呼再保存'); return; }
-            const old = btn.innerText;
-            btn.disabled = true; btn.innerText = '保存中…';
-            const { error } = await _db.rpc('set_my_name', { p_name: name });
-            btn.disabled = false;
-            if (!error) _myRealName = name;
-            btn.innerText = error ? '保存失败' : '已保存 ✓';
-            if (error) console.warn(error);
-            setTimeout(() => { btn.innerText = old; }, 2000);
         }
 
         async function openConfirmModal(userId, name) {
@@ -1566,8 +1572,12 @@
             if (e) e.stopPropagation();
             const isPub = (scope === 'public');
             const filtered = _inquiries.filter(i => i.is_public === isPub);
-            document.getElementById('island-tab-private').className = !isPub ? "px-8 py-3 rounded-xl text-xs font-black transition-all bg-white text-black shadow-sm border border-slate-200" : "px-8 py-3 rounded-xl text-xs font-black transition-all bg-transparent text-slate-400 hover:text-black";
-            document.getElementById('island-tab-public').className = isPub ? "px-8 py-3 rounded-xl text-xs font-black transition-all bg-white text-black shadow-sm border border-slate-200" : "px-8 py-3 rounded-xl text-xs font-black transition-all bg-transparent text-slate-400 hover:text-black";
+            // ⚠️ 这两串 class 跟 HTML 里那两个按钮上的是同一套，改一处就得改另一处。
+            // （压缩尺寸时差点只改了 HTML，一点切换就弹回大的。）
+            const ON  = "px-5 py-1.5 rounded-lg text-[11px] font-black transition-all bg-white text-black shadow-sm border border-slate-200";
+            const OFF = "px-5 py-1.5 rounded-lg text-[11px] font-black transition-all bg-transparent text-slate-400 hover:text-black";
+            document.getElementById('island-tab-private').className = !isPub ? ON : OFF;
+            document.getElementById('island-tab-public').className  =  isPub ? ON : OFF;
             
             // ⚠️ 一个问题可能关联好几篇经文，数据库里就是好几行。
             // 这里按问题去重，否则同一个问题会在列表里重复出现好几次。
@@ -1579,18 +1589,16 @@
             });
 
             document.getElementById('island-inquiry-list').innerHTML = uniq.map(i => `
-                <div onclick="openInquiryDetail('${i.question.replace(/'/g, "\\'")}')" class="bg-slate-50 p-8 rounded-[30px] flex justify-between items-start gap-6 border border-slate-100 shadow-sm cursor-pointer hover:bg-white hover:border-purple-300 transition-all group">
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[16px] leading-[1.8] text-slate-800 whitespace-pre-line group-hover:text-purple-700 transition-colors">${i.question}</div>
-                        <button onclick="deleteInquiryDirectly('${i.question.replace(/'/g, "\\'")}', event)" class="text-[10px] font-black tracking-widest text-red-300 hover:text-red-500 transition-colors uppercase mt-4">删除此问题</button>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" onclick="event.stopPropagation()">
+                <div onclick="openInquiryDetail('${i.question.replace(/'/g, "\\'")}')" class="bg-slate-50 px-5 py-4 rounded-2xl flex justify-between items-center gap-4 border border-slate-100 cursor-pointer hover:bg-white hover:border-purple-300 transition-all group">
+                    <div class="flex-1 min-w-0 text-[14px] leading-[1.7] text-slate-800 group-hover:text-purple-700 transition-colors">${i.question}</div>
+                    <button onclick="deleteInquiryDirectly('${i.question.replace(/'/g, "\\'")}', event)" class="text-[10px] font-black text-slate-300 hover:text-red-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100">删除</button>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" title="打开＝公开展示" onclick="event.stopPropagation()">
                         <input type="checkbox" class="sr-only switch-input" ${i.is_public ? 'checked' : ''} onchange="updateInquiryPrivacy('${i.question.replace(/'/g, "\\'")}', this.checked)">
-                        <div class="w-14 h-7 bg-slate-200 rounded-full switch-rail transition-colors"></div>
-                        <div class="absolute left-[3px] top-[3px] w-5 h-5 bg-white rounded-full switch-knob transition-transform shadow-sm"></div>
+                        <div class="w-10 h-5 bg-slate-200 rounded-full switch-rail transition-colors"></div>
+                        <div class="absolute left-[3px] top-[3px] w-[14px] h-[14px] bg-white rounded-full switch-knob transition-transform shadow-sm"></div>
                     </label>
                 </div>`
-            ).join('') || '<div class="text-center py-10 text-sm text-slate-400 italic">暂无记录</div>';
+            ).join('') || '<div class="py-6 text-[13px] text-slate-400 italic">还没有收藏的问题。在首页问一句，觉得有用就存下来。</div>';
         }
 
         async function openActivityModal(tab) {
@@ -2537,6 +2545,14 @@ async function loadMyCreations(container) {
             return (m && (m.real_name || m.nickname)) || '弟兄姊妹';
         }
 
+        // 名字前面带上职分。'none' 和空的不显示——
+        // 写「none 元」比不写还糟，那是把数据库的内部值直接怼到人脸上。
+        function memberLabel(m) {
+            const r = m && m.role;
+            const shown = (!r || r === 'none') ? '' : r + ' ';
+            return shown + memberName(m);
+        }
+
         function myChurch() {
             return (_myProfile && _myProfile.church_name) || '';
         }
@@ -2601,7 +2617,31 @@ async function loadMyCreations(container) {
                 L.groups.push(g);
             });
 
+            // 还没被安排牧场的人、还没编进组的牧者。
+            // **排在最前面**（2026-09-26 Yuan 定）——跟「我邀请的人」同一个道理：
+            // 要人动手的东西放前面，不然翻到底下才看见，就没人去做了。
+            // 也**不能藏起来**：藏起来的话一个人在系统里等于不存在，没人会想起要安排他。
+            const noGroup = pastors.filter(p => !p.group_id);
+            const orphans = _members.filter(m => !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
+
             let html = '';
+
+            if (orphans.length) {
+                html += treeRow(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
+                    'font-black text-amber-600');
+                if (_treeOpen.has('ORPH')) orphans.forEach(m =>
+                    html += treeRow(1, 'M' + m.id,
+                        memberLabel(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                        null, false, 'text-slate-400'));
+            }
+            if (noGroup.length) {
+                html += treeRow(0, 'NG', '牧者还没编进组', noGroup.length, true,
+                    'font-black text-amber-600');
+                if (_treeOpen.has('NG')) noGroup.forEach(p =>
+                    html += treeRow(1, 'M' + p.id, memberLabel(p), null, false, 'text-slate-400'));
+            }
+            if (html) html += '<div class="h-2"></div>';
+
             langs.forEach(L => {
                 const langKey = 'L' + L.lang;
                 const pastorsInLang = pastors.filter(p => L.groups.some(g => g.id === p.group_id));
@@ -2624,39 +2664,18 @@ async function loadMyCreations(container) {
                     inGroup.forEach(p => {
                         const fKey = 'F' + p.id;
                         const flock = flockOf(p);
-                        html += treeRow(2, fKey, memberName(p) + ' 的家庭牧场',
+                        html += treeRow(2, fKey, memberLabel(p) + ' 的家庭牧场',
                             flock.length, true, 'text-slate-500');
                         if (!_treeOpen.has(fKey)) return;
                         if (!flock.length) {
                             html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:56px">还没有成员</div>`;
                         }
                         flock.forEach(m => html += treeRow(3, 'M' + m.id,
-                            memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                            memberLabel(m) + (m.status !== 'active' ? '（待确认）' : ''),
                             null, false, 'text-slate-400'));
                     });
                 });
             });
-
-            // 还没被编进组的牧者，和还没被安排牧场的人。
-            // **不藏起来**——藏起来的话，一个人在系统里就等于不存在，
-            // 没人会想起要安排他。
-            const noGroup = pastors.filter(p => !p.group_id);
-            const orphans = _members.filter(m => !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
-
-            if (noGroup.length) {
-                html += treeRow(0, 'NG', '牧者还没编进组', noGroup.length, true,
-                    'font-black text-amber-600 mt-2');
-                if (_treeOpen.has('NG')) noGroup.forEach(p =>
-                    html += treeRow(1, 'M' + p.id, memberName(p), null, false, 'text-slate-400'));
-            }
-            if (orphans.length) {
-                html += treeRow(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
-                    'font-black text-amber-600 mt-2');
-                if (_treeOpen.has('ORPH')) orphans.forEach(m =>
-                    html += treeRow(1, 'M' + m.id,
-                        memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
-                        null, false, 'text-slate-400'));
-            }
 
             box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
         }
