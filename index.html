@@ -311,32 +311,11 @@
             <!-- ── 右：我是谁 ────────────────────────────── -->
             <aside class="w-full lg:w-60 flex-shrink-0 lg:sticky lg:top-24 lg:self-start space-y-8">
 
-                <!-- 档案。原来是一行居中的 pill，挤在一起看不清哪个能点。
-                     竖排一行一项，能点的那几项鼠标移上去会变色。 -->
-                <div>
-                    <div class="flex items-baseline justify-between mb-3">
-                        <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">我的档案</h3>
-                        <!-- 名字那张卡 2026-09-26 去掉了（名字在顶上胶囊里已经有了）。
-                             ⚠️ 但**不能连改名字的入口一起没了**——
-                             邀请码卡里那个输入框上一轮已经删掉，这是最后一个入口。
-                             缩成一个小链接，占的地方接近零，路还留着。 -->
-                        <button onclick="editMyName()" class="text-[10px] font-bold text-slate-400 hover:text-black transition-colors">改名字</button>
-                    </div>
-                    <div class="space-y-1 text-[13px]">
-                        <!-- ⚠️ 身份只读。原来点一下就能自己选「牧师」，等于绕过整套确认机制。
-                             来源是 profiles.role，由牧者在担保那一步填。 -->
-                        <div id="profile-role" title="身份由牧者在担保时填写，不能自己修改"
-                             class="px-3 py-2 rounded-lg bg-slate-50 font-black text-slate-500 truncate">👤 身份</div>
-                        <div onclick="editProfileInfo('church')" id="profile-church"
-                             class="px-3 py-2 rounded-lg bg-purple-50 text-purple-600 font-black cursor-pointer hover:bg-purple-100 transition-colors truncate">⛪ 教会名</div>
-                    </div>
-                </div>
-
                 <!-- 我的创作 / 互动点赞。
                      2026-09-26：这两个原来是两个小字链接，我一度把上面的标题删了，
                      Yuan 说这一块很重要——**重要的东西不该长得像脚注。**
                      做成两张能点的卡。 -->
-                <div class="pt-6 border-t border-slate-100 space-y-2">
+                <div class="space-y-2">
                     <div onclick="openActivityModal('creations')" class="px-4 py-3 rounded-xl bg-slate-50 hover:bg-white border border-slate-100 hover:border-blue-300 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500/60"></span>
@@ -1423,13 +1402,13 @@
             // role / church_name：确认那一步由邀请人写进去。
             // church_name / region / state / country：本人自己填（set_my_profile_info）。
             // 2026-09-21：区域/州/国家已经进数据库了，localStorage 那份彻底不用。
-            const role   = (_myProfile && _myProfile.role && _myProfile.role !== 'none')
-                            ? _myProfile.role
-                            : (canWrite() ? '成员' : '身份待确认');
             const church = (_myProfile && _myProfile.church_name) ? _myProfile.church_name : '教会名';
 
-            document.getElementById('profile-role').innerHTML = '👤 ' + role;
-            document.getElementById('profile-church').innerHTML = '⛪ ' + church;
+            // 「我的档案」那一块 2026-09-26 整个去掉了：
+            //   · 名字 —— 顶上胶囊里「你的个人中心」那个「你」就是，点它改
+            //   · 身份 —— 左边教会人员树里每个名字前面已经带着职分
+            //   · 教会 —— 树的标题就是「HOSANNA 人员」
+            // **同一件事在两个地方显示，改了一个另一个不会跟着变。**
             const P = _myProfile || {};
             document.getElementById('profile-region').innerText  = P.region  || '区域';
             document.getElementById('profile-state').innerText   = P.state   || '州';
@@ -2641,8 +2620,39 @@
 
             const btn = document.getElementById('btn-edit-groups');
             if (btn) btn.classList.toggle('hidden', !isPastorMe());
+            openMyBranch();
             renderChurchTree();
             renderGroupEditor();
+        }
+
+        /// 第一次加载时，把"我在的那一支"自动展开。
+        ///
+        /// 每次打开个人中心都要自己点三层才看得到本牧场的人，那三下点击
+        /// 每天都要重来一遍——**默认应该是"我最可能想看的那个状态"**。
+        ///
+        /// 只在第一次自动展开：之后是他自己收起来的，不能每次刷新又给他打开。
+        let _branchOpened = false;
+        function openMyBranch() {
+            if (_branchOpened) return;
+            const me = _members.find(m => m.id === currentUserId());
+            if (!me) return;
+            _branchOpened = true;
+
+            // 我自己就是牧者的话，展开的是我自己的牧场；否则展开我牧者的
+            const shepherd = PASTOR_ROLES.includes(me.role)
+                ? me
+                : _members.find(m => m.id === me.shepherd_id);
+
+            if (!shepherd) { _treeOpen.add('ORPH'); return; }   // 还没被安排
+
+            _treeOpen.add('F' + shepherd.id);
+            const g = _groups.find(x => x.id === shepherd.group_id);
+            if (g) {
+                _treeOpen.add('G' + g.id);
+                _treeOpen.add('L' + g.lang);
+            } else {
+                _treeOpen.add('NG');
+            }
         }
 
         // 我是不是牧者。⚠️ PASTOR_ROLES 这串名字在数据库的 is_pastor() 里也有一份——
