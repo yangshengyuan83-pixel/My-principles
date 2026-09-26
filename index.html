@@ -170,7 +170,14 @@
                     <span id="island-badge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0"></span>
                 </div>
                 <div class="flex-1 text-center overflow-hidden mx-4">
-                    <span id="island-title-collapsed" class="text-[11px] font-black italic tracking-widest truncate text-white">元的个人中心</span>
+                    <!-- ⚠️ 2026-09-26 修：这里原来整句写死成「元的个人中心」——
+                         换任何人登录都显示「元」。现在名字从档案里读。
+                         点名字改名；event.stopPropagation() 拦住外层的 toggleIsland()，
+                         否则点一下会把整个个人中心关掉。 -->
+                    <span class="text-[11px] font-black italic tracking-widest truncate text-white"><span
+                          id="island-name" onclick="event.stopPropagation(); editMyName()"
+                          title="点一下改名字"
+                          class="underline decoration-white/25 underline-offset-4 hover:decoration-white cursor-pointer">元</span>的个人中心</span>
                 </div>
                 <div class="w-20 flex justify-end items-baseline gap-1">
                     <div id="island-count-collapsed" class="text-xs font-black tracking-tighter italic text-slate-200">0</div>
@@ -278,6 +285,19 @@
             <div class="flex-1 min-w-0">
                 <p class="text-[10px] font-bold text-slate-300 tracking-widest uppercase mb-5">↑ 点击上方黑色胶囊返回主页</p>
 
+                <!-- 主页那个搜索框的第二个入口（2026-09-26）。
+                     人在个人中心翻自己收藏的问题时，最容易冒出下一个问题——
+                     那一刻还要先退回主页才能问，念头就断了。
+                     ⚠️ id 不能跟主页那个重名，所以叫 center-search-input；
+                     结果仍然渲染在主页上，所以送出时先关掉这一层。 -->
+                <div class="bg-white border border-slate-200 rounded-3xl px-5 py-4 mb-8 focus-within:border-black transition-colors">
+                    <textarea id="center-search-input" rows="2" placeholder="想问什么？写下来，我去经文里找"
+                        class="w-full bg-transparent resize-none outline-none text-[14px] leading-[1.8] text-slate-800 placeholder-slate-300"></textarea>
+                    <div class="flex justify-end pt-2 border-t border-slate-50">
+                        <button onclick="searchFromCenter()" class="text-[12px] font-black bg-black text-white px-6 py-2 rounded-full hover:bg-slate-800 transition-all">送出</button>
+                    </div>
+                </div>
+
                 <div class="flex items-center justify-between mb-5">
                     <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">问题收藏</h3>
                     <div class="flex bg-slate-50 p-1 rounded-xl gap-1 border border-slate-200 shadow-inner">
@@ -294,10 +314,15 @@
                 <!-- 档案。原来是一行居中的 pill，挤在一起看不清哪个能点。
                      竖排一行一项，能点的那几项鼠标移上去会变色。 -->
                 <div>
-                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">我的档案</h3>
+                    <div class="flex items-baseline justify-between mb-3">
+                        <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">我的档案</h3>
+                        <!-- 名字那张卡 2026-09-26 去掉了（名字在顶上胶囊里已经有了）。
+                             ⚠️ 但**不能连改名字的入口一起没了**——
+                             邀请码卡里那个输入框上一轮已经删掉，这是最后一个入口。
+                             缩成一个小链接，占的地方接近零，路还留着。 -->
+                        <button onclick="editMyName()" class="text-[10px] font-bold text-slate-400 hover:text-black transition-colors">改名字</button>
+                    </div>
                     <div class="space-y-1 text-[13px]">
-                        <div onclick="editMyName()" id="profile-name" title="点一下改名字。别人看到的就是这个"
-                             class="px-3 py-2 rounded-lg bg-slate-50 font-black text-black cursor-pointer hover:bg-slate-100 transition-colors truncate">✍️ 名字</div>
                         <!-- ⚠️ 身份只读。原来点一下就能自己选「牧师」，等于绕过整套确认机制。
                              来源是 profiles.role，由牧者在担保那一步填。 -->
                         <div id="profile-role" title="身份由牧者在担保时填写，不能自己修改"
@@ -1366,6 +1391,10 @@
                 collapsedDate.innerText = new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
             }
 
+            const nameEl = document.getElementById('island-name');
+            if (nameEl) nameEl.innerText =
+                (_myProfile && (_myProfile.real_name || _myProfile.nickname)) || '你';
+
             const collapsedCount = document.getElementById('island-count-collapsed');
             if (collapsedCount) {
                 collapsedCount.innerText = _scriptures.length;
@@ -1399,9 +1428,6 @@
                             : (canWrite() ? '成员' : '身份待确认');
             const church = (_myProfile && _myProfile.church_name) ? _myProfile.church_name : '教会名';
 
-            const myName = (_myProfile && (_myProfile.real_name || _myProfile.nickname)) || '';
-            document.getElementById('profile-name').innerHTML =
-                '✍️ ' + (myName || '名字');
             document.getElementById('profile-role').innerHTML = '👤 ' + role;
             document.getElementById('profile-church').innerHTML = '⛪ ' + church;
             const P = _myProfile || {};
@@ -1539,6 +1565,20 @@
             loadProfileInfo();
         }
 
+        // 在个人中心里问一句。
+        //
+        // 结果是渲染在主页上的（ai-answer-box / flow-feed 都在那一层），
+        // 所以送出之前先把个人中心关掉，再等关闭动画走完才开始搜——
+        // 不等的话，结果出来了人还停在这一层，什么都看不见。
+        function searchFromCenter() {
+            const el = document.getElementById('center-search-input');
+            const q = (el.value || '').trim();
+            if (!q) return;
+            el.value = '';
+            collapseIsland();
+            setTimeout(() => executeFullSearch(q), 320);   // 320 > 关闭动画的 300ms
+        }
+
         // ================= 灵动岛与档案库交互 =================
         function expandIsland() {
             const overlay = document.getElementById('personal-center-overlay');
@@ -1636,101 +1676,132 @@
         }
 
         // 恢复：您的完整查询逻辑
-async function loadMyCreations(container) {
+        // ================= 我的创作轨迹 =================
+        //
+        // 2026-09-26 重写。原来一次把全部拉回来（150 篇经文 + 450 条创作，
+        // 每条都带完整正文，还用 select('*')），十几万字的 JSON 走一趟网络，
+        // 弹窗要等好几秒。
+        //
+        // 改成**分页**，不是截断：每栏先给 40 条，底下有「再看 40 条」，
+        // 一直能翻到最后一条。
+        // ⚠️ 只截不给翻是真的把东西弄丢了——那比慢更糟。
+        //
+        // 卡片上只取用得到的列。点卡片跳转不受影响：它只用一个 id，
+        // 然后 showScriptureDetail() 会重新去数据库拉那一天的完整内容。
+
+        const ACT_LIMIT = 40;
+        const ACT_COLS = 'id, scripture_id, creation_type, content, created_at, likes_count, scripture(title)';
+        const ACT_TAG = {
+            background:     ['背景介绍', 'bg-slate-500/20 text-slate-400'],
+            interpretation: ['经文解读', 'bg-purple-500/20 text-purple-400'],
+            practice:       ['实践分享', 'bg-blue-500/20 text-blue-400'],
+            scripture:      ['核心经文', 'bg-yellow-500/10 text-yellow-500'],
+        };
+        const ACT_TITLE = {
+            scripture: '我发布的经文', background: '背景介绍',
+            interpretation: '经文解读', practice: '实践分享',
+        };
+        let _act = {};
+
+        function actQuery(key, from) {
+            const uid = window.CURRENT_USER_ID;
+            if (key === 'scripture') {
+                return _db.from('scripture')
+                    .select('id, title, content, created_at, likes_count', { count: 'exact' })
+                    .eq('author_id', uid)
+                    .order('created_at', { ascending: false })
+                    .range(from, from + ACT_LIMIT - 1);
+            }
+            return _db.from('creations')
+                .select(ACT_COLS, { count: 'exact' })
+                .eq('author_id', uid).eq('creation_type', key)
+                .order('created_at', { ascending: false })
+                .range(from, from + ACT_LIMIT - 1);
+        }
+
+        function actCard(key, p) {
+            const isScripture = key === 'scripture';
+            const [label, color] = ACT_TAG[key];
+            const jumpId = isScripture ? p.id : p.scripture_id;
+            const heading = isScripture
+                ? `<h4 class="text-black font-bold text-sm mb-2 truncate">${escapeHtml(p.title)}</h4>`
+                : `<div class="text-xs text-slate-400 mb-2 truncate">经文: <span class="text-black font-bold">${escapeHtml(p.scripture?.title || '未知经文')}</span></div>`;
+            return `
+                <div onclick="jumpToScriptureFromActivity('${jumpId}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md ${color}">${label}</span>
+                        <span class="text-[10px] font-mono text-slate-500">${formatSimpleDate(p.created_at)}</span>
+                        ${p.likes_count > 0 ? `<span class="text-[10px] text-red-400 font-bold ml-auto tracking-wider">❤️ ${p.likes_count}</span>` : ''}
+                    </div>
+                    ${heading}
+                    <p class="text-slate-500 text-[13px] line-clamp-3 leading-relaxed font-light">${escapeHtml(p.content || '')}</p>
+                </div>`;
+        }
+
+        function renderActColumn(key) {
+            const box = document.getElementById('act-col-' + key);
+            if (!box) return;
+            const st = _act[key];
+            const left = st.total - st.rows.length;
+            box.innerHTML =
+                (st.rows.length
+                    ? st.rows.map(r => actCard(key, r)).join('')
+                    : '<div class="text-[11px] text-slate-400 italic mt-2">还没有</div>') +
+                (left > 0
+                    ? `<button onclick="loadMoreAct('${key}')" id="act-more-${key}"
+                         class="w-full text-[11px] font-black text-slate-400 hover:text-black border border-slate-200 hover:border-black rounded-xl py-2.5 transition-colors">
+                         再看 ${Math.min(ACT_LIMIT, left)} 条 · 还剩 ${left}</button>`
+                    : '');
+        }
+
+        async function loadMoreAct(key) {
+            const btn = document.getElementById('act-more-' + key);
+            if (btn) { btn.disabled = true; btn.innerText = '读取中…'; }
+            const res = await actQuery(key, _act[key].rows.length);
+            if (res.error) { showError('读不到更多', res.error); if (btn) btn.innerText = '再试一次'; return; }
+            _act[key].rows = _act[key].rows.concat(res.data || []);
+            _act[key].total = res.count ?? _act[key].total;
+            renderActColumn(key);
+        }
+
+        async function loadMyCreations(container) {
             try {
-                // 增加身份安全校验，防止 ID 丢失导致查询挂起
-                if (!window.CURRENT_USER_ID) throw new Error("系统未能识别当前用户身份");
+                if (!window.CURRENT_USER_ID) throw new Error('系统未能识别当前用户身份');
 
-                //架构师修正：并行拉取“底层核心经文”与“上层衍生创作”，极致提升性能
-                const [creationsRes, scripturesRes] = await Promise.all([
-                    _db.from('creations').select('*, scripture(title)').eq('author_id', window.CURRENT_USER_ID).order('created_at', { ascending: false }),
-                    _db.from('scripture').select('*').eq('author_id', window.CURRENT_USER_ID).order('created_at', { ascending: false })
-                ]);
-                if (creationsRes.error) throw creationsRes.error;
-                if (scripturesRes.error) throw scripturesRes.error;
-                
-                const data = creationsRes.data || [];
-                const myScriptures = scripturesRes.data || [];
+                const keys = ['scripture', 'background', 'interpretation', 'practice'];
+                const results = await Promise.all(keys.map(k => actQuery(k, 0)));
+                results.forEach(r => { if (r.error) throw r.error; });
 
-                const all = (data || []).map(item => {
-                    let typeLabel = '未知', tagColor = 'bg-slate-500/20 text-slate-400';
-                    if (item.creation_type === 'background') { typeLabel = '背景介绍'; tagColor = 'bg-slate-500/20 text-slate-400'; }
-                    else if (item.creation_type === 'interpretation') { typeLabel = '经文解读'; tagColor = 'bg-purple-500/20 text-purple-400'; }
-                    else if (item.creation_type === 'practice') { typeLabel = '实践分享'; tagColor = 'bg-blue-500/20 text-blue-400'; }
-                    return { ...item, typeLabel, tagColor };
+                _act = {};
+                keys.forEach((k, n) => {
+                    _act[k] = { rows: results[n].data || [], total: results[n].count || 0 };
                 });
 
-              // 联合空状态判断
-                if (all.length === 0 && myScriptures.length === 0) {
+                if (keys.every(k => _act[k].total === 0)) {
                     container.innerHTML = '<div class="text-center py-10 text-slate-500 text-sm italic">您还没有留下任何文字脚印。</div>';
                     return;
                 }
 
-                // 架构师重构 1：在前端按 creation_type 进行数据流拆分
-                const bgList = all.filter(item => item.creation_type === 'background');
-                const intList = all.filter(item => item.creation_type === 'interpretation');
-                const pracList = all.filter(item => item.creation_type === 'practice');
-
-                // 渲染衍生创作卡片
-                const renderCard = (p) => `
-                    <div onclick="jumpToScriptureFromActivity('${p.scripture_id}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative">
-                        <div class="flex items-center gap-3 mb-3">
-                            <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md ${p.tagColor}">${p.typeLabel}</span>
-                            <span class="text-[10px] font-mono text-slate-500">${formatSimpleDate(p.created_at)}</span>
-                            ${p.likes_count > 0 ? `<span class="text-[10px] text-red-400 font-bold ml-auto tracking-wider">❤️ ${p.likes_count}</span>` : ''}
-                        </div>
-                        <div class="text-xs text-slate-400 mb-2 truncate">经文: <span class="text-black font-bold">${p.scripture?.title || '未知经文'}</span></div>
-                        <p class="text-slate-300 text-[13px] line-clamp-3 leading-relaxed font-light">${p.content}</p>
-                    </div>
-                `;
-
-                // 架构师重构 2：为源头“主经文”定制高亮专属卡片
-                const renderScriptureCard = (s) => `
-                    <div onclick="jumpToScriptureFromActivity('${s.id}')" class="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-slate-300 cursor-pointer transition-colors group relative shadow-[0_0_15px_rgba(234,179,8,0.03)]">
-                        <div class="flex items-center gap-3 mb-3">
-                            <span class="text-[10px] font-black tracking-widest px-2 py-1 rounded-md bg-yellow-500/10 text-yellow-500">核心经文</span>
-                            <span class="text-[10px] font-mono text-slate-500">${formatSimpleDate(s.created_at)}</span>
-                            ${s.likes_count > 0 ? `<span class="text-[10px] text-red-400 font-bold ml-auto tracking-wider">❤️ ${s.likes_count}</span>` : ''}
-                        </div>
-                        <h4 class="text-black font-bold text-sm mb-2 truncate">${s.title}</h4>
-                        <p class="text-slate-300 text-[13px] line-clamp-3 leading-relaxed font-light">${s.content}</p>
-                    </div>
-                `;
-
-                // 架构师重构 3：注入 CSS Grid 四列响应式网格布局 (间距微调至 gap-6 以防拥挤)
                 container.innerHTML = `
                     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                        <!-- 第一列：主经文 (知识源头) -->
+                        ${keys.map(k => `
                         <div class="flex flex-col gap-4">
-                            <h3 class="text-[10px] font-black tracking-widest text-yellow-500/70 uppercase border-b border-white/10 pb-2">我发布的经文 (${myScriptures.length})</h3>
-                            ${myScriptures.length > 0 ? myScriptures.map(renderScriptureCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无经文创作</div>'}
-                        </div>
-                        <!-- 第二列：背景 -->
-                        <div class="flex flex-col gap-4">
-                            <h3 class="text-[10px] font-black tracking-widest text-slate-400 uppercase border-b border-white/10 pb-2">背景介绍 (${bgList.length})</h3>
-                            ${bgList.length > 0 ? bgList.map(renderCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无背景创作</div>'}
-                        </div>
-                        <!-- 第三列：解读 -->
-                        <div class="flex flex-col gap-4">
-                            <h3 class="text-[10px] font-black tracking-widest text-slate-400 uppercase border-b border-white/10 pb-2">经文解读 (${intList.length})</h3>
-                            ${intList.length > 0 ? intList.map(renderCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无解读创作</div>'}
-                        </div>
-                        <!-- 第四列：实践 -->
-                        <div class="flex flex-col gap-4">
-                            <h3 class="text-[10px] font-black tracking-widest text-slate-400 uppercase border-b border-white/10 pb-2">实践分享 (${pracList.length})</h3>
-                            ${pracList.length > 0 ? pracList.map(renderCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无实践创作</div>'}
-                        </div>
-                    </div>
-                `;
-         
-            } catch(e) {
-                // 架构师修正：绝对拦截！直接把错误暴露在弹窗里，不再无限 Loading
-                container.innerHTML = `<div class="text-center py-10 text-red-400 text-sm font-bold">加载中断，原因: ${e.message}</div>`;
-                console.error("创作轨迹异常:", e);
+                            <h3 class="text-[10px] font-black tracking-widest ${k === 'scripture' ? 'text-yellow-500/70' : 'text-slate-400'} uppercase border-b border-slate-100 pb-2">
+                                ${ACT_TITLE[k]} (${_act[k].total})
+                            </h3>
+                            <div id="act-col-${k}" class="flex flex-col gap-4"></div>
+                        </div>`).join('')}
+                    </div>`;
+                keys.forEach(renderActColumn);
+
+            } catch (e) {
+                // 直接把错误暴露在弹窗里，不要无限转圈——
+                // 转圈的界面不告诉人发生了什么，比报错还糟。
+                container.innerHTML = `<div class="text-center py-10 text-red-400 text-sm font-bold">加载中断，原因: ${escapeHtml(e.message)}</div>`;
+                console.error('创作轨迹异常:', e);
             }
         }
 
-        // 恢复：您的完整点赞链路逻辑
        async function loadMyLikes(container, viewType = 'received') {
             try {
                 if (!window.CURRENT_USER_ID) throw new Error("系统未能识别当前用户身份");
