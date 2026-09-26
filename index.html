@@ -227,73 +227,6 @@
                 </div>
             </div>
 
-            <div class="mb-16 bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden transition-all duration-300">
-                <div onclick="toggleRoles()" class="flex justify-between items-center px-8 py-6 cursor-pointer hover:bg-slate-100 transition-colors">
-                    <div class="flex items-center gap-4">
-                        <span class="text-2xl">📋</span>
-                        <!-- 架构师注入：赋予 ID 以便 JS 接管，并将默认文本更新为 教会人员 -->
-                        <h3 id="roles-header-title" class="text-lg font-black tracking-widest text-black">教会人员</h3>
-                    </div>
-                    <div class="flex items-center gap-3 text-slate-400 group">
-                        <span class="text-xs font-bold tracking-widest" id="roles-toggle-text">点击展开</span>
-                        <span id="roles-arrow" class="text-sm transform transition-transform duration-300 group-hover:translate-y-0.5">▼</span>
-                    </div>
-                </div>
-                <div id="roles-content" class="hidden px-8 pb-10 border-t border-slate-100 pt-8">
-                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8">
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-yellow-600 mb-4 border-b border-slate-200 pb-3 uppercase">VIP (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-yellow-500/50"></span>小李</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-yellow-500/50"></span>名人</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-slate-500 mb-4 border-b border-slate-200 pb-3 uppercase">仆人 (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-slate-500/50"></span>张明</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-slate-500/50"></span>明哥</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-green-600 mb-4 border-b border-slate-200 pb-3 uppercase">牧者 (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-green-500/50"></span>李东</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-green-500/50"></span>游梁</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-emerald-600 mb-4 border-b border-slate-200 pb-3 uppercase">牧夫 (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-emerald-500/50"></span>李强</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-emerald-500/50"></span>李超</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-blue-600 mb-4 border-b border-slate-200 pb-3 uppercase">职司 (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-blue-500/50"></span>小张</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-blue-500/50"></span>小强</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-purple-600 mb-4 border-b border-slate-200 pb-3 uppercase">牧师 (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-purple-500/50"></span>王牧师</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-purple-500/50"></span>李牧师</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-black tracking-widest text-pink-600 mb-4 border-b border-slate-200 pb-3 uppercase">师母 (2)</div>
-                            <div class="space-y-3 text-[13px] font-medium text-slate-500">
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-pink-500/50"></span>李师母</div>
-                                <div class="hover:text-black cursor-pointer transition-colors flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-pink-500/50"></span>王师母</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
                 <div class="col-span-12 md:col-span-5">
                     <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-4">我的邀请码</h3>
@@ -365,6 +298,17 @@
                 <button id="btn-open-reports" onclick="openReports()" class="hidden w-full mt-8 text-left text-[11px] font-black text-slate-400 hover:text-red-500 transition-colors pl-1">
                     举报审议 <span id="report-badge" class="text-red-500"></span>
                 </button>
+            </div>
+
+            <!-- ============ 教会人员（2026-09-26）============
+                 原来在个人中心里有一块「Hosanna 教会人员」，里面七个职分各两个人，
+                 **全是编的假数据**。删掉了——一个看起来有 14 个人的社区，
+                 实际只有 2 个人，这种界面骗的是自己。
+                 换成这棵树：语言 → 组 → 家庭牧场 → 成员，全部来自真实数据。
+                 没有数据的时候就老实说没有。 -->
+            <div class="mt-10">
+                <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest mb-4">教会人员</h3>
+                <div id="church-tree" class="text-[12px] space-y-0.5"></div>
             </div>
         </div>
     </nav>
@@ -620,7 +564,12 @@
                     <option value="师母">师母</option>
                     <option value="牧师">牧师</option>
                 </select>
-                <input id="confirm-shepherd-input" placeholder="他的牧者是谁" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <!-- 2026-09-26：从"手填牧者名字"改成"从真实牧者里选"。
+                     手填会出现「李东」「李东牧者」「东哥」三种写法指同一个人，
+                     跟教会名那个坑完全同形（那个已经踩过一次）。 -->
+                <select id="confirm-shepherd-input" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all appearance-none cursor-pointer">
+                    <option value="">他属于谁的家庭牧场</option>
+                </select>
                 <input id="confirm-church-input"   placeholder="教会" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
             </div>
             <div id="confirm-error" class="text-[13px] text-red-500 mt-4 leading-[1.8]"></div>
@@ -982,7 +931,14 @@
             _myIsAdmin = false;
             if (!currentUserId()) return;
             const { data, error } = await _db.from('profiles')
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, shepherd_name, region, state, country, is_report_reviewer')
+                // ⚠️ 2026-09-26 事故：这里原来 select 了 shepherd_name，
+                // 而 09a 那份 SQL 把那一列删掉了。PostgREST 遇到不存在的列
+                // **直接返回 400**，data 变成 null——名字、身份、邀请码、
+                // 发布权限、举报审议入口全部来自这一次查询，一次失败全没了。
+                //
+                // 教训：**删一列之前，先搜一遍还有谁在 select 它。**
+                // 这不是"改代码"和"改数据库"两件事，是同一件事的两半。
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, shepherd_id, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -1015,6 +971,8 @@
             const rBtn = document.getElementById('btn-open-reports');
             if (rBtn) rBtn.classList.toggle('hidden', !_myCanReviewReports);
             if (_myCanReviewReports) refreshReportBadge();
+
+            loadChurchTree();
         }
 
         function canWrite() {
@@ -1195,12 +1153,22 @@
             setTimeout(() => { btn.innerText = old; }, 2000);
         }
 
-        function openConfirmModal(userId, name) {
+        async function openConfirmModal(userId, name) {
             _confirmTargetId = userId;
             document.getElementById('confirm-who').innerHTML =
                 '要确认的是：<span class="font-black text-black">' + name + '</span>';
             ['confirm-role-input','confirm-church-input','confirm-shepherd-input']
                 .forEach(id => document.getElementById(id).value = '');
+
+            // 把真实的牧者填进下拉框。一个都没有的时候留一句话，
+            // 不要给一个空下拉框让人对着发呆。
+            await loadChurchTree();
+            const sel = document.getElementById('confirm-shepherd-input');
+            const pastors = _members.filter(m => PASTOR_ROLES.includes(m.role));
+            sel.innerHTML = pastors.length
+                ? '<option value="">他属于谁的家庭牧场</option>' +
+                  pastors.map(p => `<option value="${p.id}">${escapeHtml(memberName(p))}</option>`).join('')
+                : '<option value="">还没有牧者，这一项先空着</option>';
             document.getElementById('confirm-error').innerText = '';
             const m = document.getElementById('confirm-modal');
             m.classList.remove('hidden');
@@ -1221,13 +1189,14 @@
             err.innerText = '';
             btn.disabled = true; btn.innerText = '处理中…';
             try {
+                // 2026-09-26：参数换了。旧的是 p_flock text / p_shepherd text（手填名字），
+                // 新的是 p_shepherd_id uuid（指向那位牧者本人）。
+                // flock_name 那一列已经删掉——它和 shepherd_id 是同一个意思的两种写法。
                 const { error } = await _db.rpc('confirm_member', {
-                    p_user_id:  _confirmTargetId,
-                    p_role:     document.getElementById('confirm-role-input').value.trim(),
-                    p_church:   document.getElementById('confirm-church-input').value.trim(),
-                    p_flock:    null,   // 家庭牧场这一项取消了（2026-09-21），数据库那一列留着不用
-
-                    p_shepherd: document.getElementById('confirm-shepherd-input').value.trim()
+                    p_user_id:     _confirmTargetId,
+                    p_role:        document.getElementById('confirm-role-input').value.trim(),
+                    p_church:      document.getElementById('confirm-church-input').value.trim(),
+                    p_shepherd_id: document.getElementById('confirm-shepherd-input').value || null
                 });
                 if (error) throw error;
                 closeConfirmModal();
@@ -1410,13 +1379,12 @@
             document.getElementById('profile-region').innerText  = P.region  || '区域';
             document.getElementById('profile-state').innerText   = P.state   || '州';
             document.getElementById('profile-country').innerText = P.country || '国家';
-            
-            // 架构师注入：动态联动更新“教会人员”标题
-            const churchDisplay = (church && church !== '教会名') ? church + ' ' : '';
-            const rolesHeader = document.getElementById('roles-header-title');
-            if (rolesHeader) {
-                rolesHeader.innerText = churchDisplay + '教会人员';
-            }
+
+
+            // 左边那棵教会人员树的标题也跟着教会名走
+            const churchDisplay = (church && church !== '教会名') ? church : '教会';
+            const treeTitle = document.getElementById('church-tree-title');
+            if (treeTitle) treeTitle.innerText = churchDisplay + '人员';
         }
 
         function openRoleSelector() {
@@ -1570,21 +1538,6 @@
             }
         }
 
-        // 恢复：您的 toggleRoles 函数
-        function toggleRoles() {
-            const content = document.getElementById('roles-content');
-            const arrow = document.getElementById('roles-arrow');
-            const toggleText = document.getElementById('roles-toggle-text');
-            if (content.classList.contains('hidden')) {
-                content.classList.remove('hidden');
-                arrow.classList.add('rotate-180');
-                toggleText.innerText = "点击收起";
-            } else {
-                content.classList.add('hidden');
-                arrow.classList.remove('rotate-180');
-                toggleText.innerText = "点击展开";
-            }
-        }
 
         function toggleInquiryScope(scope, e) {
             if (e) e.stopPropagation();
@@ -2535,6 +2488,129 @@ async function loadMyCreations(container) {
 
         async function likeScripture(id) {
             await toggleLike('scripture', id, () => bootstrap());
+        }
+
+        // ================= 教会人员树 =================
+        //
+        // 2026-09-26 新建。原来个人中心里那块「Hosanna 教会人员」是**编的假数据**
+        // （七个职分各两个人，一个真的都没有），已经删掉。
+        //
+        // 结构：语言 → 组 → 家庭牧场（一位牧者）→ 成员
+        // 展开方式像聊天 App 的好友列表，一层一层点开。
+        //
+        // 归属规则（见 06_产品决策记录/2026-09-26_家庭牧场与分组.md）：
+        //   · 家庭牧场 = 一位牧者，成员的 shepherd_id 指向他
+        //   · **牧场挂在哪个组，看牧者的组**，不看成员自己的语言——
+        //     一位韩语成员在中文 2 组牧者的牧场里，就显示在「中文 2 组」下面
+        //   · 组只存在牧者身上，成员不存，避免两份对不上
+
+        let _members = [];
+        const _treeOpen = new Set();          // 展开了哪几个节点
+        const LANG_LABEL = { zh: '中文', en: 'English', ko: '한국어' };
+
+        function memberName(m) {
+            return (m && (m.real_name || m.nickname)) || '弟兄姊妹';
+        }
+
+        async function loadChurchTree() {
+            const { data, error } = await _db.from('profiles')
+                .select('id, real_name, nickname, role, status, shepherd_id, group_lang, group_no, voice_lang');
+            logReadError('教会人员', error);
+            _members = data || [];
+            renderChurchTree();
+        }
+
+        function toggleTreeNode(key) {
+            _treeOpen.has(key) ? _treeOpen.delete(key) : _treeOpen.add(key);
+            renderChurchTree();
+        }
+
+        function renderChurchTree() {
+            const box = document.getElementById('church-tree');
+            if (!box) return;
+
+            if (!_members.length) {
+                box.innerHTML = '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
+                return;
+            }
+
+            const pastors = _members.filter(m => PASTOR_ROLES.includes(m.role));
+            // 有牧者、但牧者还没被分到组 → 归到「还没分组」，不要让他消失
+            const byLang = {};
+            pastors.forEach(p => {
+                const lang = p.group_lang || '_none';
+                const no = p.group_no || 0;
+                ((byLang[lang] ||= {})[no] ||= []).push(p);
+            });
+
+            // 还没被安排家庭牧场的人。**不藏起来**——
+            // 藏起来的话，一个人在系统里就等于不存在，没人会想起要安排他。
+            const orphans = _members.filter(m =>
+                !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
+
+            const row = (indent, key, label, count, openable, cls) => {
+                const open = _treeOpen.has(key);
+                return `<div onclick="${openable ? `toggleTreeNode('${key}')` : ''}"
+                    class="flex items-center gap-1.5 py-1 rounded ${openable ? 'cursor-pointer hover:bg-slate-50' : ''} ${cls || ''}"
+                    style="padding-left:${indent * 12}px">
+                    <span class="w-3 text-[9px] text-slate-300">${openable ? (open ? '▾' : '▸') : ''}</span>
+                    <span class="truncate">${escapeHtml(label)}</span>
+                    ${count !== null ? `<span class="text-slate-300 ml-auto pl-1 flex-shrink-0">${count}</span>` : ''}
+                </div>`;
+            };
+
+            let html = '';
+
+            Object.keys(byLang).sort().forEach(lang => {
+                const langKey = 'L' + lang;
+                const groups = byLang[lang];
+                const total = Object.values(groups).flat()
+                    .reduce((n, p) => n + 1 + _members.filter(m => m.shepherd_id === p.id).length, 0);
+                html += row(0, langKey,
+                    LANG_LABEL[lang] || '还没分组', total, true,
+                    'font-black text-slate-600');
+                if (!_treeOpen.has(langKey)) return;
+
+                Object.keys(groups).sort((a, b) => a - b).forEach(no => {
+                    const gKey = langKey + 'G' + no;
+                    const inGroup = groups[no];
+                    const gTotal = inGroup.reduce(
+                        (n, p) => n + 1 + _members.filter(m => m.shepherd_id === p.id).length, 0);
+                    html += row(1, gKey,
+                        no === '0' ? '还没编组' : no + ' 组', gTotal, true, 'text-slate-500');
+                    if (!_treeOpen.has(gKey)) return;
+
+                    inGroup.forEach(p => {
+                        const fKey = 'F' + p.id;
+                        const flock = _members.filter(m => m.shepherd_id === p.id);
+                        html += row(2, fKey,
+                            memberName(p) + ' 的家庭牧场', flock.length, true, 'text-slate-500');
+                        if (!_treeOpen.has(fKey)) return;
+                        if (!flock.length) {
+                            html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:48px">还没有成员</div>`;
+                        }
+                        flock.forEach(m => {
+                            html += row(3, 'M' + m.id,
+                                memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                                null, false, 'text-slate-400');
+                        });
+                    });
+                });
+            });
+
+            if (orphans.length) {
+                html += row(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
+                    'font-black text-amber-600 mt-2');
+                if (_treeOpen.has('ORPH')) {
+                    orphans.forEach(m => {
+                        html += row(1, 'M' + m.id,
+                            memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                            null, false, 'text-slate-400');
+                    });
+                }
+            }
+
+            box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
         }
 
         // ================= 举报审议 =================
