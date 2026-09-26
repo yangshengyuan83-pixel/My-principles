@@ -263,6 +263,36 @@
                 </div>
             </div>
 
+            <!-- ============ 教会人员（2026-09-26）============
+                 原来这个位置有一块「Hosanna 教会人员」，七个职分各两个人，
+                 **全是编的假数据**。删掉了——一个看起来有 14 个人的社区，
+                 实际只有 2 个人，这种界面骗的是自己。
+                 换成这棵树：语言 → 组 → 家庭牧场 → 成员，全部来自真实数据。
+                 没有数据的时候就老实说没有。 -->
+            <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
+                <div class="col-span-12 md:col-span-5">
+                    <div class="flex items-baseline justify-between mb-4">
+                        <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">教会人员</h3>
+                        <!-- 只有牧者看得到。分组是教会自己维护的，不是写死在程序里的。 -->
+                        <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
+                    </div>
+                    <div id="church-tree" class="text-[12px] space-y-0.5"></div>
+
+                    <div id="group-editor" class="hidden mt-6 pt-5 border-t border-slate-100">
+                        <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">分组</div>
+                        <div id="group-list" class="space-y-1 mb-4"></div>
+                        <div class="flex gap-2">
+                            <input id="new-group-lang" placeholder="语言（中文 / English / Bahasa…）" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-black transition-all">
+                            <input id="new-group-no" type="number" min="1" max="99" placeholder="组号" class="w-16 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-black transition-all">
+                            <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-4 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-2 leading-[1.8]">
+                            语言写什么都行，这是给人看的名字。<span class="font-bold text-slate-500">删除只影响分组，不影响任何人的档案。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
                 <div class="col-span-12">
                     <div class="flex items-center justify-end mb-10">
@@ -300,16 +330,6 @@
                 </button>
             </div>
 
-            <!-- ============ 教会人员（2026-09-26）============
-                 原来在个人中心里有一块「Hosanna 教会人员」，里面七个职分各两个人，
-                 **全是编的假数据**。删掉了——一个看起来有 14 个人的社区，
-                 实际只有 2 个人，这种界面骗的是自己。
-                 换成这棵树：语言 → 组 → 家庭牧场 → 成员，全部来自真实数据。
-                 没有数据的时候就老实说没有。 -->
-            <div class="mt-10">
-                <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest mb-4">教会人员</h3>
-                <div id="church-tree" class="text-[12px] space-y-0.5"></div>
-            </div>
         </div>
     </nav>
 
@@ -2492,32 +2512,53 @@ async function loadMyCreations(container) {
 
         // ================= 教会人员树 =================
         //
-        // 2026-09-26 新建。原来个人中心里那块「Hosanna 教会人员」是**编的假数据**
-        // （七个职分各两个人，一个真的都没有），已经删掉。
+        // 2026-09-26。原来个人中心这个位置是**编的假数据**（七个职分各两个人，
+        // 一个真的都没有），已经删掉。
         //
-        // 结构：语言 → 组 → 家庭牧场（一位牧者）→ 成员
-        // 展开方式像聊天 App 的好友列表，一层一层点开。
+        // 结构：语言 → 组 → 家庭牧场（一位牧者）→ 成员，像好友列表一层层点开。
+        //
+        // ⚠️ 语言和组**不写死在代码里**，来自 church_groups 表，教会自己维护。
+        //    最初我把 {zh:中文, en:English, ko:한국어} 硬编在这里——
+        //    那等于假定所有教会都跟散那教会一样，有的教会有印尼语。
         //
         // 归属规则（见 06_产品决策记录/2026-09-26_家庭牧场与分组.md）：
         //   · 家庭牧场 = 一位牧者，成员的 shepherd_id 指向他
-        //   · **牧场挂在哪个组，看牧者的组**，不看成员自己的语言——
-        //     一位韩语成员在中文 2 组牧者的牧场里，就显示在「中文 2 组」下面
+        //   · **牧场挂在哪个组，看牧者的组**，不看成员自己的语言
         //   · 组只存在牧者身上，成员不存，避免两份对不上
 
         let _members = [];
-        const _treeOpen = new Set();          // 展开了哪几个节点
-        const LANG_LABEL = { zh: '中文', en: 'English', ko: '한국어' };
+        let _groups  = [];
+        const _treeOpen = new Set();
 
         function memberName(m) {
             return (m && (m.real_name || m.nickname)) || '弟兄姊妹';
         }
 
+        function myChurch() {
+            return (_myProfile && _myProfile.church_name) || '';
+        }
+
         async function loadChurchTree() {
-            const { data, error } = await _db.from('profiles')
-                .select('id, real_name, nickname, role, status, shepherd_id, group_lang, group_no, voice_lang');
-            logReadError('教会人员', error);
-            _members = data || [];
+            const [mRes, gRes] = await Promise.all([
+                _db.from('profiles')
+                   .select('id, real_name, nickname, role, status, church_name, shepherd_id, group_id, voice_lang'),
+                _db.from('church_groups').select('*').order('sort_order').order('group_no')
+            ]);
+            logReadError('教会人员', mRes.error);
+            logReadError('分组', gRes.error);
+            _members = mRes.data || [];
+            _groups  = (gRes.data || []).filter(g => !myChurch() || g.church_name === myChurch());
+
+            const btn = document.getElementById('btn-edit-groups');
+            if (btn) btn.classList.toggle('hidden', !isPastorMe());
             renderChurchTree();
+            renderGroupEditor();
+        }
+
+        // 我是不是牧者。⚠️ PASTOR_ROLES 这串名字在数据库的 is_pastor() 里也有一份——
+        // 这是已知的重复，记在 01_待办清单.md「职分表」那条里，上架后统一解决。
+        function isPastorMe() {
+            return !!_myProfile && PASTOR_ROLES.includes(_myProfile.role);
         }
 
         function toggleTreeNode(key) {
@@ -2525,92 +2566,147 @@ async function loadMyCreations(container) {
             renderChurchTree();
         }
 
+        function treeRow(indent, key, label, count, openable, cls) {
+            const open = _treeOpen.has(key);
+            return `<div onclick="${openable ? `toggleTreeNode('${key}')` : ''}"
+                class="flex items-center gap-1.5 py-1 rounded ${openable ? 'cursor-pointer hover:bg-slate-50' : ''} ${cls || ''}"
+                style="padding-left:${indent * 14}px">
+                <span class="w-3 text-[9px] text-slate-300">${openable ? (open ? '▾' : '▸') : ''}</span>
+                <span class="truncate">${escapeHtml(label)}</span>
+                ${count !== null ? `<span class="text-slate-300 ml-auto pl-2 flex-shrink-0">${count}</span>` : ''}
+            </div>`;
+        }
+
         function renderChurchTree() {
             const box = document.getElementById('church-tree');
             if (!box) return;
-
             if (!_members.length) {
                 box.innerHTML = '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
                 return;
             }
 
             const pastors = _members.filter(m => PASTOR_ROLES.includes(m.role));
-            // 有牧者、但牧者还没被分到组 → 归到「还没分组」，不要让他消失
-            const byLang = {};
-            pastors.forEach(p => {
-                const lang = p.group_lang || '_none';
-                const no = p.group_no || 0;
-                ((byLang[lang] ||= {})[no] ||= []).push(p);
+            const flockOf = p => _members.filter(m => m.shepherd_id === p.id);
+            const headcount = p => 1 + flockOf(p).length;
+
+            // 语言 → 组号 → 这个组里的牧者。顺序完全按 church_groups 里的排法，
+            // 不在代码里排——中文、English、한국어 按字符排会乱。
+            const langs = [];
+            _groups.forEach(g => {
+                let L = langs.find(x => x.lang === g.lang);
+                if (!L) { L = { lang: g.lang, groups: [] }; langs.push(L); }
+                L.groups.push(g);
             });
 
-            // 还没被安排家庭牧场的人。**不藏起来**——
-            // 藏起来的话，一个人在系统里就等于不存在，没人会想起要安排他。
-            const orphans = _members.filter(m =>
-                !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
-
-            const row = (indent, key, label, count, openable, cls) => {
-                const open = _treeOpen.has(key);
-                return `<div onclick="${openable ? `toggleTreeNode('${key}')` : ''}"
-                    class="flex items-center gap-1.5 py-1 rounded ${openable ? 'cursor-pointer hover:bg-slate-50' : ''} ${cls || ''}"
-                    style="padding-left:${indent * 12}px">
-                    <span class="w-3 text-[9px] text-slate-300">${openable ? (open ? '▾' : '▸') : ''}</span>
-                    <span class="truncate">${escapeHtml(label)}</span>
-                    ${count !== null ? `<span class="text-slate-300 ml-auto pl-1 flex-shrink-0">${count}</span>` : ''}
-                </div>`;
-            };
-
             let html = '';
-
-            Object.keys(byLang).sort().forEach(lang => {
-                const langKey = 'L' + lang;
-                const groups = byLang[lang];
-                const total = Object.values(groups).flat()
-                    .reduce((n, p) => n + 1 + _members.filter(m => m.shepherd_id === p.id).length, 0);
-                html += row(0, langKey,
-                    LANG_LABEL[lang] || '还没分组', total, true,
-                    'font-black text-slate-600');
+            langs.forEach(L => {
+                const langKey = 'L' + L.lang;
+                const pastorsInLang = pastors.filter(p => L.groups.some(g => g.id === p.group_id));
+                html += treeRow(0, langKey, L.lang,
+                    pastorsInLang.reduce((n, p) => n + headcount(p), 0),
+                    true, 'font-black text-slate-600');
                 if (!_treeOpen.has(langKey)) return;
 
-                Object.keys(groups).sort((a, b) => a - b).forEach(no => {
-                    const gKey = langKey + 'G' + no;
-                    const inGroup = groups[no];
-                    const gTotal = inGroup.reduce(
-                        (n, p) => n + 1 + _members.filter(m => m.shepherd_id === p.id).length, 0);
-                    html += row(1, gKey,
-                        no === '0' ? '还没编组' : no + ' 组', gTotal, true, 'text-slate-500');
+                L.groups.forEach(g => {
+                    const gKey = 'G' + g.id;
+                    const inGroup = pastors.filter(p => p.group_id === g.id);
+                    html += treeRow(1, gKey, g.group_no + ' 组',
+                        inGroup.reduce((n, p) => n + headcount(p), 0),
+                        true, 'text-slate-500');
                     if (!_treeOpen.has(gKey)) return;
 
+                    if (!inGroup.length) {
+                        html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:42px">这个组还没有牧者</div>`;
+                    }
                     inGroup.forEach(p => {
                         const fKey = 'F' + p.id;
-                        const flock = _members.filter(m => m.shepherd_id === p.id);
-                        html += row(2, fKey,
-                            memberName(p) + ' 的家庭牧场', flock.length, true, 'text-slate-500');
+                        const flock = flockOf(p);
+                        html += treeRow(2, fKey, memberName(p) + ' 的家庭牧场',
+                            flock.length, true, 'text-slate-500');
                         if (!_treeOpen.has(fKey)) return;
                         if (!flock.length) {
-                            html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:48px">还没有成员</div>`;
+                            html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:56px">还没有成员</div>`;
                         }
-                        flock.forEach(m => {
-                            html += row(3, 'M' + m.id,
-                                memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
-                                null, false, 'text-slate-400');
-                        });
+                        flock.forEach(m => html += treeRow(3, 'M' + m.id,
+                            memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                            null, false, 'text-slate-400'));
                     });
                 });
             });
 
-            if (orphans.length) {
-                html += row(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
+            // 还没被编进组的牧者，和还没被安排牧场的人。
+            // **不藏起来**——藏起来的话，一个人在系统里就等于不存在，
+            // 没人会想起要安排他。
+            const noGroup = pastors.filter(p => !p.group_id);
+            const orphans = _members.filter(m => !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
+
+            if (noGroup.length) {
+                html += treeRow(0, 'NG', '牧者还没编进组', noGroup.length, true,
                     'font-black text-amber-600 mt-2');
-                if (_treeOpen.has('ORPH')) {
-                    orphans.forEach(m => {
-                        html += row(1, 'M' + m.id,
-                            memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
-                            null, false, 'text-slate-400');
-                    });
-                }
+                if (_treeOpen.has('NG')) noGroup.forEach(p =>
+                    html += treeRow(1, 'M' + p.id, memberName(p), null, false, 'text-slate-400'));
+            }
+            if (orphans.length) {
+                html += treeRow(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
+                    'font-black text-amber-600 mt-2');
+                if (_treeOpen.has('ORPH')) orphans.forEach(m =>
+                    html += treeRow(1, 'M' + m.id,
+                        memberName(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                        null, false, 'text-slate-400'));
             }
 
             box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
+        }
+
+        // ── 分组编辑（只有牧者看得到入口）──────────────
+
+        function toggleGroupEditor() {
+            document.getElementById('group-editor').classList.toggle('hidden');
+        }
+
+        function renderGroupEditor() {
+            const box = document.getElementById('group-list');
+            if (!box) return;
+            box.innerHTML = _groups.map(g => `
+                <div class="flex items-center gap-2 text-[12px] text-slate-600">
+                    <span class="truncate">${escapeHtml(g.lang)} · ${g.group_no} 组</span>
+                    <button onclick="deleteGroup('${g.id}')" class="ml-auto text-[11px] text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">✕</button>
+                </div>`).join('') ||
+                '<div class="text-[11px] text-slate-300 italic">还没有分组</div>';
+        }
+
+        async function addGroup(btn) {
+            const lang = document.getElementById('new-group-lang').value.trim();
+            const no = parseInt(document.getElementById('new-group-no').value, 10);
+            if (!lang) { alert('写一个语言名'); return; }
+            if (!no || no < 1) { alert('组号要是个正整数'); return; }
+            if (!myChurch()) { alert('先在上面填好你的教会名，分组是按教会分的'); return; }
+
+            // 同一种语言沿用已有的排序号，新语言排到最后。
+            // 顺序让教会自己形成，代码不替他们排——中文/English/한국어 按字符排会乱。
+            const same = _groups.find(g => g.lang === lang);
+            const order = same ? same.sort_order
+                               : (_groups.reduce((m, g) => Math.max(m, g.sort_order), 0) + 1);
+
+            btn.disabled = true;
+            const { error } = await _db.from('church_groups').insert([{
+                church_name: myChurch(), lang: lang, group_no: no, sort_order: order
+            }]);
+            btn.disabled = false;
+            if (error) { showError('加不上', error); return; }
+            document.getElementById('new-group-no').value = '';
+            loadChurchTree();
+        }
+
+        async function deleteGroup(id) {
+            const g = _groups.find(x => x.id === id);
+            const inIt = _members.filter(m => m.group_id === id).length;
+            if (!confirm(inIt
+                ? `「${g.lang} · ${g.group_no} 组」里还有 ${inIt} 位牧者。\n删掉之后他们会变成"还没编进组"，档案不受影响。确定吗？`
+                : `删掉「${g.lang} · ${g.group_no} 组」？`)) return;
+            const { error } = await _db.from('church_groups').delete().eq('id', id);
+            if (error) { showError('删不掉', error); return; }
+            loadChurchTree();
         }
 
         // ================= 举报审议 =================
