@@ -319,9 +319,13 @@
                     </div>
                 </div>
                 <div class="col-span-12 md:col-span-7">
-                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-4">
-                        等我确认的人<span id="pending-count" class="ml-2 text-red-500"></span>
+                    <!-- 2026-09-26 改名。原来叫「等我确认的人」，但列表拉的是
+                         inviter_id = 我 的**全部**人，已经确认过的也在里面——
+                         名字和内容对不上。一个说谎的标题，比没有标题更糟。 -->
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-1">
+                        我邀请的人<span id="invited-total" class="ml-2 text-slate-300"></span>
                     </h3>
+                    <div id="pending-count" class="text-[12px] font-bold text-red-500 mb-4 min-h-[18px]"></div>
                     <div id="pending-list" class="space-y-3"></div>
                 </div>
             </div>
@@ -1072,14 +1076,28 @@
             }
         }
 
-        // 用了我的邀请码、还等着我确认的人
+        // 用了我的邀请码进来的人——**全部**，不只是等确认的。
+        //
+        // 2026-09-26：这一栏原来标题写「等我确认的人」，拉的却是全部，
+        // 已确认的也在列表里。一个说谎的标题比没有标题更糟。
+        // 现在标题说全部人数，底下红字单说还有几位要你动手。
+        //
+        // 为什么只显示一级（我直接邀请的），不显示"我邀请的人又邀请了多少人"：
+        // 两个数字性质不一样。**一级是责任**——你要在教会见到他、你要点确认，
+        // 那个数字的意思是"我要照看几个人"。二级以下是成绩，那些人你不认识、
+        // 也不为他们负责；显示出来，邀请就从"带一个朋友来"变成了计分板。
+        // （牧者需要知道整个家庭牧场有多少人是另一回事——那也是照看范围，
+        //   不是业绩，留到「群组 = 牧者的家庭牧场」那一块再做。）
         async function refreshPendingList() {
             const box = document.getElementById('pending-list');
             const badge = document.getElementById('pending-count');
+            const total = document.getElementById('invited-total');
             if (!box) return;
             const islandBadge = document.getElementById('island-badge');
             if (!currentUserId()) {
                 box.innerHTML = '';
+                if (badge) badge.innerText = '';
+                if (total) total.innerText = '';
                 if (islandBadge) islandBadge.classList.add('hidden');
                 return;
             }
@@ -1092,7 +1110,25 @@
 
             const list = data || [];
             const waiting = list.filter(p => p.status !== 'active');
-            if (badge) badge.innerText = waiting.length ? '(' + waiting.length + ')' : '';
+
+            if (total) total.innerText = list.length ? String(list.length) : '';
+            if (badge) {
+                badge.innerText = waiting.length
+                    ? `其中 ${waiting.length} 位还等你确认`
+                    : (list.length ? '都确认过了' : '');
+                badge.className = waiting.length
+                    ? 'text-[12px] font-bold text-red-500 mb-4 min-h-[18px]'
+                    : 'text-[12px] font-bold text-slate-300 mb-4 min-h-[18px]';
+            }
+
+            // 要你动手的排最前面。已经确认过的沉到下面——
+            // 那些人不需要你再做什么，放在上面只会挡住真正要办的事。
+            list.sort((a, b) => {
+                const wa = a.status !== 'active' ? 0 : 1;
+                const wb = b.status !== 'active' ? 0 : 1;
+                if (wa !== wb) return wa - wb;
+                return (b.created_at || '').localeCompare(a.created_at || '');
+            });
 
             // 胶囊上的红点：不点开也能看见有人在等
             const island = document.getElementById('island-badge');
@@ -1102,7 +1138,7 @@
             }
 
             if (list.length === 0) {
-                box.innerHTML = '<div class="text-[13px] text-slate-400 italic py-4">还没有人用你的邀请码</div>';
+                box.innerHTML = '<div class="text-[13px] text-slate-400 italic py-4">还没有人用你的邀请码。把它给一位你在教会认得的弟兄姊妹吧。</div>';
                 return;
             }
 
