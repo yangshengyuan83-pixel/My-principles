@@ -560,8 +560,8 @@
             </p>
 
             <div class="flex gap-6 border-b border-slate-100 mb-4">
-                <button id="rp-tab-open" onclick="switchReportTab('open')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all">待处理</button>
-                <button id="rp-tab-done" onclick="switchReportTab('done')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all">已处理</button>
+                <button id="rp-tab-open" onclick="switchReportTab('open')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all">在办</button>
+                <button id="rp-tab-done" onclick="switchReportTab('done')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all">已完结</button>
             </div>
 
             <div id="rp-list" class="custom-scroll overflow-y-auto flex-1 space-y-3 pr-2"></div>
@@ -2226,13 +2226,60 @@ async function loadMyCreations(container) {
         // 跟 App 里"长按选中之后菜单里才有"是同一个原则：
         // **一个常驻的「举报」按钮，等于天天提醒每个人这里可能有坏东西。**
         // 卡片上本来就有 group 这个 class，所以 group-hover 直接能用。
-        function reportButtonHtml(d) {
-            // AI 写的那些 author_id 也是 Yuan 的，但 AI 写的东西不是谁的个人表达，
-            // 照样能举报。跟 App 里的判断保持一致。
-            const mine = d.author_id === window.CURRENT_USER_ID && !d.is_ai;
-            if (mine || !currentUserId()) return '';
-            return `<button onclick="reportItem('creations','${d.id}')" class="text-[10px] font-black text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">举报</button>`;
+        // 选中文字之后浮出来的那一小条：复制 / 举报。
+        //
+        // 2026-09-24 改。原来是"鼠标移到那一行就出现举报"——
+        // Yuan 说那样**太频繁**：人只是想读，每移过一段就看见一次"举报"，
+        // 等于反复提醒大家彼此可能有问题。
+        //
+        // 改成跟 App 一样：**选中文字才出现。** 没选，就一个字都看不到。
+        // 浏览器不提供这种浮条（右键菜单加不了自定义项），所以自己做一个。
+        let _selBar = null;
+
+        function hideSelBar() {
+            if (_selBar) { _selBar.remove(); _selBar = null; }
         }
+
+        function onTextSelected() {
+            const sel = window.getSelection();
+            const text = sel ? sel.toString().trim() : '';
+            if (!text) { hideSelBar(); return; }
+
+            // 选中的这段字属于哪一条内容？往上找带 data-report-id 的那个盒子。
+            let node = sel.anchorNode;
+            if (node && node.nodeType === 3) node = node.parentElement;
+            const box = node && node.closest ? node.closest('[data-report-id]') : null;
+            if (!box) { hideSelBar(); return; }
+
+            const rect = sel.getRangeAt(0).getBoundingClientRect();
+            hideSelBar();
+
+            const bar = document.createElement('div');
+            bar.className = 'fixed z-[2000] bg-black text-white rounded-full shadow-xl flex items-center gap-1 px-2 py-1';
+            bar.style.left = Math.max(8, rect.left + rect.width / 2 - 70) + 'px';
+            bar.style.top = Math.max(8, rect.top - 44) + 'px';
+            bar.innerHTML = `
+                <button id="selbar-copy" class="text-[11px] font-bold px-3 py-1 hover:bg-white/15 rounded-full transition-colors">复制</button>
+                <span class="w-px h-3 bg-white/20"></span>
+                <button id="selbar-report" class="text-[11px] font-bold px-3 py-1 hover:bg-white/15 rounded-full transition-colors">举报</button>`;
+            document.body.appendChild(bar);
+            _selBar = bar;
+
+            bar.querySelector('#selbar-copy').onclick = () => {
+                navigator.clipboard.writeText(text).catch(() => {});
+                hideSelBar();
+                window.getSelection().removeAllRanges();
+            };
+            bar.querySelector('#selbar-report').onclick = () => {
+                const id = box.getAttribute('data-report-id');
+                hideSelBar();
+                reportItem('creations', id);
+            };
+        }
+
+        document.addEventListener('mouseup', () => setTimeout(onTextSelected, 10));
+        document.addEventListener('touchend', () => setTimeout(onTextSelected, 10));
+        document.addEventListener('scroll', hideSelBar, true);
 
         async function reportItem(table, id) {
             if (!currentUserId()) { alert('登录之后才能举报'); return; }
@@ -2278,36 +2325,33 @@ async function loadMyCreations(container) {
 
             document.getElementById('detail-background-container').innerHTML = bgs.map(d => `
                 <div class="bg-white p-5 rounded-xl border border-slate-100 mb-3 group transition-colors overflow-hidden">
-                    <div class="text-[16px] leading-[1.8] mb-2 text-slate-800">${d.content}</div>
+                    <div data-report-id="${d.id}" class="text-[16px] leading-[1.8] mb-2 text-slate-800">${d.content}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
-                        ${reportButtonHtml(d)}
                     </div>
                 </div>
             `).join('');
 
             document.getElementById('detail-discourse-container').innerHTML = its.map(d => `
                 <div class="book-style bg-white border border-slate-200 border-l-slate-800 group transition-colors overflow-hidden">
-                    <div class="text-[16px] leading-[1.8] mb-2 text-black">${d.content}</div>
+                    <div data-report-id="${d.id}" class="text-[16px] leading-[1.8] mb-2 text-black">${d.content}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
-                        ${reportButtonHtml(d)}
                     </div>
                 </div>
             `).join('');
 
             document.getElementById('detail-instance-container').innerHTML = pts.map(d => `
                 <div class="notebook-style group overflow-hidden">
-                    <div class="text-[16px] leading-[1.8] mb-2 text-black">"${d.content}"</div>
+                    <div data-report-id="${d.id}" class="text-[16px] leading-[1.8] mb-2 text-black">"${d.content}"</div>
                     <div class="flex items-center gap-4 border-t border-black/5 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
-                        ${reportButtonHtml(d)}
                     </div>
                 </div>
             `).join('');
@@ -2459,14 +2503,29 @@ async function loadMyCreations(container) {
 
         // ================= 举报审议 =================
         //
-        // 2026-09-24 建。只有牧者进得来（入口默认 hidden，见 loadMyStatus）。
+        // 2026-09-26 重做。第一版把「已提醒作者」做成一个按钮——错的。
+        // 提醒作者不是点一下，是一次讨论的结果：
+        //   牧者提建议 → 别人附议或提不同的 → 有共识 → 交给一位牧者当面去说
         //
-        // ⚠️ 界面藏起来不是安全边界。真正的拦截在数据库的 RLS 里：
-        //    reports 的 SELECT 策略是 can_review_reports() or reporter_id = auth.uid()。
-        //    别人在控制台里直接调 openReports() 也只会看到一个空列表。
+        // **系统不发任何消息给作者。** 转达是人当面做的（2026-09-26 Yuan 定）：
+        // 教会每周都见面，一条系统通知说"你被举报了，牧者建议你改"，
+        // 比一个人私下跟他讲要冷得多，而这件事最需要的恰恰是温度。
+        // 所以那一档叫「已交给谁去说」，不叫「已发送」——没发就不能写成发了。
+        //
+        // ⚠️ 界面藏起来不是安全边界，真正的拦截在 RLS 里（can_review_reports()）。
 
         let _rpTab = 'open';
-        let _rpVoted = new Set();
+        let _rpVoted = new Set();        // 我附议过哪些建议
+        let _rpMyKind = {};              // 每张卡片上我正在选的建议类型
+        let _reviewers = [];             // [{id, name}] 能审议的牧者，转达时要选人
+
+        const RP_STAT = {
+            open:       ['还没人看',   'bg-red-50 text-red-500'],
+            discussing: ['讨论中',     'bg-blue-50 text-blue-600'],
+            handed:     ['已交给人去说','bg-amber-50 text-amber-600'],
+            resolved:   ['处理完了',   'bg-green-50 text-green-600'],
+            dismissed:  ['不用改',     'bg-slate-100 text-slate-400']
+        };
 
         function openReports() {
             document.getElementById('reports-modal').classList.remove('hidden');
@@ -2474,6 +2533,7 @@ async function loadMyCreations(container) {
                 document.getElementById('reports-modal').classList.remove('opacity-0');
                 document.getElementById('reports-modal-box').classList.remove('scale-95');
             }, 10);
+            loadReviewers();
             switchReportTab(_rpTab);
         }
 
@@ -2493,51 +2553,129 @@ async function loadMyCreations(container) {
             refreshReports();
         }
 
-        // 侧边栏上那个小红字：还有几条没处理。
-        // 不弹通知、不发邮件——牧者自己来看的时候才看到。
+        // 能审议的人有哪些——转达时要从里面挑一位。
+        // ⚠️ 这串职分在数据库的 can_review_reports() 里也有一份（PASTOR_ROLES），
+        //    改一处就要改另一处。
+        async function loadReviewers() {
+            const { data } = await _db.from('profiles')
+                .select('id, real_name, nickname, role, is_report_reviewer');
+            _reviewers = (data || [])
+                .filter(p => PASTOR_ROLES.includes(p.role) || p.is_report_reviewer === true)
+                .map(p => ({ id: p.id, name: p.real_name || p.nickname || '弟兄姊妹' }));
+        }
+
+        function reviewerName(id) {
+            const r = _reviewers.find(x => x.id === id);
+            return r ? r.name : '某位牧者';
+        }
+
+        // 侧边栏那个小红字。不弹通知、不发邮件——牧者自己来看的时候才看到。
+        // 「在办」的三档都算：还没人看 / 讨论中 / 已交给人去说。
+        // handed 也算，是因为**它还没完**：作者到底改没改，要有人回来看。
         async function refreshReportBadge() {
             if (!_myCanReviewReports) return;
             const { count, error } = await _db.from('reports')
-                .select('id', { count: 'exact', head: true }).eq('status', 'open');
+                .select('id', { count: 'exact', head: true })
+                .in('status', ['open', 'discussing', 'handed']);
             logReadError('举报数', error);
             const el = document.getElementById('report-badge');
-            if (el) el.innerText = count ? '· ' + count + ' 条待处理' : '';
+            if (el) el.innerText = count ? '· ' + count + ' 条在办' : '';
         }
 
         async function refreshReports() {
+            const inflight = ['open', 'discussing', 'handed'];
             let q = _db.from('reports').select('*').order('created_at', { ascending: false });
-            q = _rpTab === 'open' ? q.eq('status', 'open') : q.neq('status', 'open');
+            q = _rpTab === 'open' ? q.in('status', inflight) : q.in('status', ['resolved', 'dismissed']);
             const { data, error } = await q;
             logReadError('举报', error);
             const rows = data || [];
 
-            // 附议一次拉回来在内存里数，不要每条发一个请求
-            const { data: votes } = await _db.from('report_votes').select('report_id,voter_id');
-            const n = {};
+            // 建议和附议各拉一次，在内存里配对，不要每张卡片发一个请求
+            const { data: sugs } = await _db.from('report_suggestions').select('*').order('created_at');
+            const { data: votes } = await _db.from('report_suggestion_votes').select('suggestion_id,voter_id');
+
+            const byReport = {};
+            (sugs || []).forEach(x => { (byReport[x.report_id] ||= []).push(x); });
+            const voteN = {};
             _rpVoted = new Set();
             (votes || []).forEach(v => {
-                n[v.report_id] = (n[v.report_id] || 0) + 1;
-                if (v.voter_id === currentUserId()) _rpVoted.add(v.report_id);
+                voteN[v.suggestion_id] = (voteN[v.suggestion_id] || 0) + 1;
+                if (v.voter_id === currentUserId()) _rpVoted.add(v.suggestion_id);
             });
 
             const LABEL = { scripture: '经文', creations: '文字', recordings: '录音' };
-            const STAT = {
-                open: ['待处理', 'bg-red-50 text-red-500'],
-                resolved: ['已处理', 'bg-green-50 text-green-600'],
-                dismissed: ['不处理', 'bg-slate-100 text-slate-400']
-            };
 
             document.getElementById('rp-list').innerHTML = rows.map(r => {
-                const st = STAT[r.status] || STAT.open;
-                const voted = _rpVoted.has(r.id);
-                const cnt = n[r.id] || 0;
+                const st = RP_STAT[r.status] || RP_STAT.open;
+                const mine = byReport[r.id] || [];
 
-                // 录音存的 snapshot 是文件路径，放个播放器让牧者直接听原件。
-                // 文字的话 snapshot 就是举报当时那段原文——
-                // 作者事后删掉了也还在，这正是存快照的意义。
+                // 录音存的 snapshot 是文件路径，给个播放器让牧者听原件。
+                // 文字的 snapshot 是举报当时的原文——作者事后删了也还在，
+                // 这正是存快照的意义。
                 const body = r.target_table === 'recordings'
                     ? `<audio controls preload="none" class="w-full mt-1" src="${SUPABASE_URL}/storage/v1/object/public/recordings/${r.content_snapshot}"></audio>`
                     : `<div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl p-4 mt-1">${escapeHtml(r.content_snapshot || '')}</div>`;
+
+                const iProposed = mine.some(x => x.author_id === currentUserId());
+
+                const sugHtml = mine.map(x => {
+                    const n = voteN[x.id] || 0;
+                    const voted = _rpVoted.has(x.id);
+                    const isHanded = r.handed_suggestion_id === x.id;
+                    return `
+                    <div class="rounded-xl border ${isHanded ? 'border-amber-200 bg-amber-50/40' : 'border-slate-100'} p-3">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-black ${x.kind === 'no_change' ? 'text-slate-400' : 'text-blue-600'}">${x.kind === 'no_change' ? '不用改' : '建议这样改'}</span>
+                            <span class="text-[10px] text-slate-400">${escapeHtml(reviewerName(x.author_id))}</span>
+                            ${isHanded ? '<span class="text-[9px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-700">已交给人去说的就是这条</span>' : ''}
+                            <span class="text-[10px] text-slate-300 ml-auto">${formatSimpleDate(x.created_at)}</span>
+                        </div>
+                        ${x.body ? `<div class="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(x.body)}</div>` : ''}
+                        <div class="flex items-center gap-3 mt-2">
+                            <button onclick="toggleSuggestionVote('${x.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">${voted ? '✓ 已附议' : '+ 我附议'} ${n > 0 ? n : ''}</button>
+                            ${x.author_id === currentUserId() ? `<button onclick="deleteSuggestion2('${x.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors ml-auto">撤回</button>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+
+                // 提建议的表单。已经提过的人不再显示（一人一条，想改先撤回）。
+                const formHtml = (_rpTab === 'open' && !iProposed && r.status !== 'handed') ? `
+                    <div class="mt-3 pt-3 border-t border-slate-100">
+                        <div class="flex gap-2 mb-2">
+                            <button onclick="setSugKind('${r.id}','no_change')" id="sk-nc-${r.id}" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors">不用改</button>
+                            <button onclick="setSugKind('${r.id}','revise')" id="sk-rv-${r.id}" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors">建议这样改</button>
+                        </div>
+                        <div id="sk-box-${r.id}" class="hidden">
+                            <textarea id="sk-text-${r.id}" placeholder="哪里有问题？建议怎么改？——这段话会原样转达给作者，请用你愿意当面说的语气写。" class="w-full bg-white p-3 rounded-xl outline-none text-[13px] text-slate-700 min-h-[72px] resize-none leading-relaxed border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
+                        </div>
+                        <button onclick="submitSuggestion2('${r.id}')" class="mt-2 text-[11px] font-black bg-black text-white px-5 py-2 rounded-full hover:bg-slate-800 transition-all">提出这条建议</button>
+                    </div>` : '';
+
+                // 转达区：有建议了才出现。选一条 + 选一位牧者去说。
+                const handHtml = (_rpTab === 'open' && mine.length && r.status !== 'handed') ? `
+                    <div class="mt-3 pt-3 border-t border-slate-100">
+                        <div class="text-[11px] font-black text-slate-400 mb-2">商量好了？交给一位牧者当面去跟作者说</div>
+                        <div class="flex gap-2 flex-wrap items-center">
+                            <select id="hand-sug-${r.id}" class="text-[11px] border border-slate-200 rounded-lg px-2 py-1.5 outline-none">
+                                ${mine.filter(x => x.kind === 'revise').map(x => `<option value="${x.id}">${escapeHtml(reviewerName(x.author_id))} 的建议（${voteN[x.id] || 0} 人附议）</option>`).join('')}
+                            </select>
+                            <select id="hand-who-${r.id}" class="text-[11px] border border-slate-200 rounded-lg px-2 py-1.5 outline-none">
+                                ${_reviewers.map(p => `<option value="${p.id}">${escapeHtml(p.name)} 去说</option>`).join('')}
+                            </select>
+                            <button onclick="handOver('${r.id}')" class="text-[11px] font-black text-amber-600 hover:text-amber-700 transition-colors">交给他</button>
+                        </div>
+                    </div>` : '';
+
+                // 已经交出去了：显示交给了谁，以及接下来的三种结局
+                const afterHtml = (r.status === 'handed') ? `
+                    <div class="mt-3 pt-3 border-t border-slate-100">
+                        <div class="text-[12px] text-amber-700 mb-2">已交给 <b>${escapeHtml(reviewerName(r.handed_to))}</b> 当面去说（${formatSimpleDate(r.handed_at)}）。系统没有发任何消息给作者。</div>
+                        <div class="space-y-1">
+                            <button onclick="resolveReport('${r.id}','resolved','作者已经改好了')" class="w-full text-left text-[12px] text-slate-600 hover:text-black hover:bg-slate-50 rounded-lg px-3 py-2 transition-colors">作者已经改好了</button>
+                            <button onclick="resolveReport('${r.id}','resolved','作者没有回应，内容已移除')" class="w-full text-left text-[12px] text-slate-600 hover:text-black hover:bg-slate-50 rounded-lg px-3 py-2 transition-colors">作者没有回应，内容已移除</button>
+                            <button onclick="resolveReport('${r.id}','dismissed','作者说明了原因，不用改')" class="w-full text-left text-[12px] text-slate-600 hover:text-black hover:bg-slate-50 rounded-lg px-3 py-2 transition-colors">作者说明了原因，不用改</button>
+                        </div>
+                    </div>` : '';
 
                 return `
                 <div class="bg-white border border-slate-100 rounded-2xl p-5">
@@ -2548,43 +2686,84 @@ async function loadMyCreations(container) {
                     </div>
                     ${r.reason ? `<div class="text-[12px] text-slate-500 leading-relaxed mb-3"><span class="font-black text-slate-400">举报理由：</span>${escapeHtml(r.reason)}</div>` : '<div class="text-[11px] text-slate-300 italic mb-3">没有写理由</div>'}
                     ${body}
-                    ${r.resolved_note ? `<div class="mt-3 pt-3 border-t border-slate-100 text-[12px] text-slate-500 leading-relaxed"><span class="font-black text-slate-400">处理说明：</span>${escapeHtml(r.resolved_note)}</div>` : ''}
-                    <div class="flex items-center gap-4 mt-4 flex-wrap">
-                        <button onclick="toggleReportVote('${r.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">
-                            ${voted ? '✓ 我也这么看' : '+ 我也这么看'} ${cnt > 0 ? cnt : ''}
-                        </button>
-                        ${r.status === 'open' ? `
-                            <button onclick="resolveReport('${r.id}','resolved')" class="text-[11px] font-bold text-slate-400 hover:text-green-600 transition-colors ml-auto">标记已处理</button>
-                            <button onclick="resolveReport('${r.id}','dismissed')" class="text-[11px] font-bold text-slate-300 hover:text-black transition-colors">不处理</button>
-                        ` : `<button onclick="resolveReport('${r.id}','open')" class="text-[11px] font-bold text-slate-300 hover:text-black transition-colors ml-auto">重新打开</button>`}
-                    </div>
+                    ${mine.length ? `<div class="mt-4 space-y-2">${sugHtml}</div>` : ''}
+                    ${formHtml}${handHtml}${afterHtml}
+                    ${r.resolved_note ? `<div class="mt-3 pt-3 border-t border-slate-100 text-[12px] text-slate-500"><span class="font-black text-slate-400">结果：</span>${escapeHtml(r.resolved_note)}</div>` : ''}
+                    ${_rpTab === 'done' ? `<div class="mt-3 text-right"><button onclick="resolveReport('${r.id}','open','')" class="text-[11px] font-bold text-slate-300 hover:text-black transition-colors">重新审议</button></div>` : ''}
                 </div>`;
-            }).join('') || `<div class="text-[12px] text-slate-400 italic py-8 text-center">${_rpTab === 'open' ? '没有待处理的举报' : '还没有处理过的'}</div>`;
+            }).join('') || `<div class="text-[12px] text-slate-400 italic py-8 text-center">${_rpTab === 'open' ? '没有在办的举报' : '还没有处理完的'}</div>`;
         }
 
-        async function toggleReportVote(id) {
+        function setSugKind(reportId, kind) {
+            _rpMyKind[reportId] = kind;
+            const nc = document.getElementById('sk-nc-' + reportId);
+            const rv = document.getElementById('sk-rv-' + reportId);
+            const on = 'text-[11px] font-bold px-3 py-1.5 rounded-lg border border-black bg-black text-white transition-colors';
+            const off = 'text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors';
+            if (nc) nc.className = kind === 'no_change' ? on : off;
+            if (rv) rv.className = kind === 'revise' ? on : off;
+            const box = document.getElementById('sk-box-' + reportId);
+            if (box) box.classList.toggle('hidden', kind !== 'revise');
+        }
+
+        async function submitSuggestion2(reportId) {
+            const kind = _rpMyKind[reportId];
+            if (!kind) { alert('先选一个：不用改，还是建议这样改'); return; }
+            const ta = document.getElementById('sk-text-' + reportId);
+            const body = kind === 'revise' ? (ta ? ta.value.trim() : '') : null;
+            // 数据库上有同样的约束（建议要改就得说清楚改什么）。
+            // 这里拦一道只是给人看得懂的提示，不是安全边界。
+            if (kind === 'revise' && !body) { alert('请写清楚哪里有问题、该怎么改——这段会原样转达给作者'); return; }
+
+            const { error } = await _db.from('report_suggestions').insert([{
+                report_id: reportId, author_id: currentUserId(), kind: kind, body: body
+            }]);
+            if (error) { showError('没能提交', error); return; }
+            delete _rpMyKind[reportId];
+            refreshReports(); refreshReportBadge();
+        }
+
+        async function deleteSuggestion2(id) {
+            if (!confirm('撤回自己这条建议？')) return;
+            const { error } = await _db.from('report_suggestions').delete().eq('id', id);
+            if (error) { showError('撤回失败', error); return; }
+            refreshReports();
+        }
+
+        async function toggleSuggestionVote(id) {
             if (_rpVoted.has(id)) {
-                const { error } = await _db.from('report_votes').delete()
-                    .eq('report_id', id).eq('voter_id', currentUserId());
+                const { error } = await _db.from('report_suggestion_votes').delete()
+                    .eq('suggestion_id', id).eq('voter_id', currentUserId());
                 if (error) { showError('取消没成功', error); return; }
             } else {
-                const { error } = await _db.from('report_votes')
-                    .insert([{ report_id: id, voter_id: currentUserId() }]);
+                const { error } = await _db.from('report_suggestion_votes')
+                    .insert([{ suggestion_id: id, voter_id: currentUserId() }]);
                 if (error) { showError('附议没成功', error); return; }
             }
             refreshReports();
         }
 
-        // 改状态。**不删举报记录**——处理完了也留着底。
-        async function resolveReport(id, status) {
-            let note = null;
-            if (status !== 'open') {
-                note = prompt('说一句怎么处理的？（其他牧者会看到，可以留空）', '');
-                if (note === null) return;   // 点了取消
-            }
+        // 交给一位牧者当面去说。**系统不发消息**，这一步只是记下谁去说、说哪一条。
+        async function handOver(reportId) {
+            const sug = document.getElementById('hand-sug-' + reportId);
+            const who = document.getElementById('hand-who-' + reportId);
+            if (!sug || !sug.value) { alert('还没有"建议这样改"的条目可以转达'); return; }
+            const { error } = await _db.from('reports').update({
+                status: 'handed',
+                handed_suggestion_id: sug.value,
+                handed_to: who.value,
+                handed_at: new Date().toISOString()
+            }).eq('id', reportId);
+            if (error) { showError('没能记下', error); return; }
+            refreshReports(); refreshReportBadge();
+        }
+
+        // 收尾。**不删举报记录**——处理完了也留着底。
+        async function resolveReport(id, status, note) {
             const patch = { status: status };
             if (status === 'open') {
                 patch.resolved_by = null; patch.resolved_at = null; patch.resolved_note = null;
+                patch.handed_to = null; patch.handed_suggestion_id = null; patch.handed_at = null;
             } else {
                 patch.resolved_by = currentUserId();
                 patch.resolved_at = new Date().toISOString();
