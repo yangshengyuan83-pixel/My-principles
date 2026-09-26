@@ -188,7 +188,39 @@
             </button>
         </div>
 
-        <div class="max-w-6xl mx-auto w-full px-12 md:px-20">
+        <!-- ============ 教会人员（2026-09-26）============
+             原来这里有一块「Hosanna 教会人员」，七个职分各两个人，**全是编的假数据**。
+             删掉了——一个看起来有 14 个人的社区实际只有 2 个人，这种界面骗的是自己。
+             换成这棵树：语言 → 组 → 家庭牧场 → 成员，全部来自真实数据。
+
+             放在最左边一整条，从「退出账号」下面一直到底：
+             它是一个"随时瞄一眼"的东西，不该夹在别的模块中间跟着滚。
+             窄屏（lg 以下）会自动变成堆在最上面的一块，不会盖住内容。 -->
+        <div class="flex flex-col lg:flex-row gap-12 px-12 md:px-20 w-full">
+
+            <aside class="w-full lg:w-56 flex-shrink-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-10rem)] overflow-y-auto custom-scroll pr-1">
+                <div class="flex items-baseline justify-between mb-4">
+                    <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">教会人员</h3>
+                    <!-- 只有牧者看得到。分组是教会自己维护的，不是写死在程序里的。 -->
+                    <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
+                </div>
+                <div id="church-tree" class="text-[12px] space-y-0.5"></div>
+
+                <div id="group-editor" class="hidden mt-6 pt-5 border-t border-slate-100">
+                    <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">分组</div>
+                    <div id="group-list" class="space-y-1 mb-4"></div>
+                    <div class="flex gap-2">
+                        <input id="new-group-lang" placeholder="语言" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-black transition-all">
+                        <input id="new-group-no" type="number" min="1" max="99" placeholder="组" class="w-12 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-[12px] outline-none focus:border-black transition-all">
+                        <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-3 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-2 leading-[1.8]">
+                        语言写什么都行（中文 / English / Bahasa…）。<span class="font-bold text-slate-500">删除只影响分组，不动任何人的档案。</span>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="flex-1 min-w-0 max-w-5xl">
             <div class="mb-12 text-center flex flex-col items-center">
                 <!-- 架构师修改 2：彻底移除巨大的 H1 标题，替换为带有呼吸灯效果 (animate-pulse) 的极简操作提示 -->
                 <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase animate-pulse mb-2">↑ 点击上方黑色胶囊即可返回主页</p>
@@ -263,36 +295,6 @@
                 </div>
             </div>
 
-            <!-- ============ 教会人员（2026-09-26）============
-                 原来这个位置有一块「Hosanna 教会人员」，七个职分各两个人，
-                 **全是编的假数据**。删掉了——一个看起来有 14 个人的社区，
-                 实际只有 2 个人，这种界面骗的是自己。
-                 换成这棵树：语言 → 组 → 家庭牧场 → 成员，全部来自真实数据。
-                 没有数据的时候就老实说没有。 -->
-            <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
-                <div class="col-span-12 md:col-span-5">
-                    <div class="flex items-baseline justify-between mb-4">
-                        <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">教会人员</h3>
-                        <!-- 只有牧者看得到。分组是教会自己维护的，不是写死在程序里的。 -->
-                        <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
-                    </div>
-                    <div id="church-tree" class="text-[12px] space-y-0.5"></div>
-
-                    <div id="group-editor" class="hidden mt-6 pt-5 border-t border-slate-100">
-                        <div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-3">分组</div>
-                        <div id="group-list" class="space-y-1 mb-4"></div>
-                        <div class="flex gap-2">
-                            <input id="new-group-lang" placeholder="语言（中文 / English / Bahasa…）" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-black transition-all">
-                            <input id="new-group-no" type="number" min="1" max="99" placeholder="组号" class="w-16 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-black transition-all">
-                            <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-4 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
-                        </div>
-                        <div class="text-[11px] text-slate-400 mt-2 leading-[1.8]">
-                            语言写什么都行，这是给人看的名字。<span class="font-bold text-slate-500">删除只影响分组，不影响任何人的档案。</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="grid grid-cols-12 gap-12 border-t border-slate-100 pt-16">
                 <div class="col-span-12">
                     <div class="flex items-center justify-end mb-10">
@@ -304,9 +306,10 @@
                     <div id="island-inquiry-list" class="space-y-4"></div>
                 </div>
             </div>
+            </div>
         </div>
     </div>
-        
+
 
     <!-- 左侧清单 -->
     <nav class="w-72 border-r border-slate-100 flex flex-col p-7 h-screen bg-white flex-shrink-0 relative z-[100] transition-colors duration-300">
