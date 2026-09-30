@@ -193,6 +193,10 @@
             <button onclick="executeLogout()" class="text-[11px] font-black tracking-widest text-red-500 hover:text-red-600 uppercase transition-colors">
                 退出账号
             </button>
+            <!-- 2026-09-30 加：网页版也能自己删账号（之前只有 App 有，隐私声明里写的是"请发邮件"） -->
+            <button onclick="executeDeleteAccount()" class="text-[11px] font-black tracking-widest text-slate-300 hover:text-red-500 uppercase transition-colors">
+                删除账号
+            </button>
         </div>
 
         <!-- ============ 教会人员（2026-09-26）============
@@ -781,6 +785,28 @@
             }
         }
 
+        // 删除账号（2026-09-30 加）
+        //
+        // 走的是 App 同一个数据库函数 delete_user_account()（security definer，
+        // 只删 auth.uid() 自己）。App 在 设置 → 删除账号，网页版之前没有，
+        // 隐私声明里写的是「请发邮件」——**让人能自己走，比承诺会帮他走更可信。**
+        //
+        // 要他亲手打「删除」两个字：这一步不能撤销，confirm() 太容易手快点掉。
+        //
+        // ⚠️ Apple 登录的撤销授权（TN3194）是对 App 的要求，App 那边做了；
+        //    网页版这里只删账号，不去碰 Apple 的授权。
+        async function executeDeleteAccount() {
+            if (!currentUserId()) { alert('请先登录'); return; }
+            const typed = prompt('账号删除后，你的登录信息会被永久清除，不能撤销。\n\n确定要删除的话，请在下面输入「删除」两个字：');
+            if (typed === null) return;
+            if (typed.trim() !== '删除') { alert('没有输入「删除」，账号没有动。'); return; }
+            const { error } = await _db.rpc('delete_user_account');
+            if (error) { showError('删除账号没成功', error); return; }
+            try { await _db.auth.signOut({ scope: 'local' }); } catch (e) { console.error(e); }
+            alert('账号已经删除了。');
+            window.location.reload();
+        }
+
         // 1. 极简模式切换 (登录 <-> 注册)
         function toggleAuthMode() {
             _isLoginMode = !_isLoginMode;
@@ -1341,8 +1367,8 @@
         // 直接往 innerHTML 里塞的话，内容里带一段 <script> 就会在牧者的浏览器里跑起来。
         // 举报这个场景尤其危险：看的人正是权限最高的那几位。
         //
-        // ⚠️ 建议箱（refreshSuggestions）现在还是直接塞 ${r.content}，没有转义。
-        //    那是同一类问题，只是还没改——见 01_待办清单.md。
+        // ⚠️ 建议箱（refreshSuggestions）2026-09-30 已经改成 escapeHtml()，
+        //    这条待办已经做完，见 01_待办清单.md。
         function escapeHtml(str) {
             return String(str == null ? '' : str)
                 .replace(/&/g, '&amp;')
@@ -3346,8 +3372,8 @@
                         ${!r.is_public ? '<span class="text-[9px] text-slate-300">仅自己可见</span>' : ''}
                         <span class="text-[10px] text-slate-300 ml-auto">${formatSimpleDate(r.created_at)}</span>
                     </div>
-                    <div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap">${r.content}</div>
-                    ${r.reply ? `<div class="mt-3 pt-3 border-t border-slate-100 text-[12px] text-slate-500 leading-relaxed"><span class="font-black text-slate-400">回复：</span>${r.reply}</div>` : ''}
+                    <div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(r.content)}</div>
+                    ${r.reply ? `<div class="mt-3 pt-3 border-t border-slate-100 text-[12px] text-slate-500 leading-relaxed"><span class="font-black text-slate-400">回复：</span>${escapeHtml(r.reply)}</div>` : ''}
                     <div class="flex items-center gap-4 mt-3">
                         ${r.type === 'suggestion' && r.is_public ? `
                             <button onclick="toggleVote('${r.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">
