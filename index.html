@@ -736,7 +736,7 @@
                 </div>
             </div>
 
-            <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 transition-colors overflow-hidden">
+            <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-6 transition-colors overflow-hidden">
                 <h3 class="text-[11px] font-black text-slate-400 mb-4 uppercase tracking-widest">生命实践分享</h3>
                 <div id="detail-instance-container"></div>
                 <div id="trigger-instance" onclick="toggleInput('instance')" class="w-full bg-white border-2 border-slate-100 border-dashed rounded-xl py-3 cursor-pointer text-[12px] font-bold text-slate-400 hover:border-slate-300 hover:text-black transition-all text-center mt-3">+ 发布实践分享</div>
@@ -746,6 +746,21 @@
                         <label class="flex items-center gap-2 mr-auto text-[11px] text-slate-400 cursor-pointer select-none hover:text-slate-600 transition-colors"><input type="checkbox" id="instance-is-ai" class="accent-slate-700 w-3.5 h-3.5 cursor-pointer">这是 AI 写的</label>
                         <button onclick="toggleInput('instance')" class="text-[11px] font-black text-slate-400 hover:text-black transition-colors">取消</button>
                         <button onclick="submitDetailInstance(this)" class="btn-black bg-black text-white px-8 py-2.5 text-[11px]">上传</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 祷告题目（2026-10-07 Yuan 要的）：所有人都能看到；别人可以点「一同祷告」，只计数、不显示是谁。
+                 存在 creations 表，creation_type = 'prayer'。App 只认 background / interpretation / practice 三种，不会显示这一类。 -->
+            <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 transition-colors overflow-hidden">
+                <h3 class="text-[11px] font-black text-slate-400 mb-4 uppercase tracking-widest">祷告题目</h3>
+                <div id="detail-prayer-container"></div>
+                <div id="trigger-prayer" onclick="toggleInput('prayer')" class="w-full bg-white border-2 border-slate-100 border-dashed rounded-xl py-3 cursor-pointer text-[12px] font-bold text-slate-400 hover:border-slate-300 hover:text-black transition-all text-center mt-3">+ 发布祷告题目</div>
+                <div id="form-prayer" class="hidden mt-3">
+                    <textarea id="detail-prayer-input" placeholder="写下你的祷告题目（所有人都能看到）..." class="w-full bg-white text-[15px] text-black p-4 rounded-xl outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
+                    <div class="flex justify-end items-center gap-6 mt-3">
+                        <button onclick="toggleInput('prayer')" class="text-[11px] font-black text-slate-400 hover:text-black transition-colors">取消</button>
+                        <button onclick="submitDetailPrayer(this)" class="btn-black bg-black text-white px-8 py-2.5 text-[11px]">发布</button>
                     </div>
                 </div>
             </div>
@@ -2305,7 +2320,7 @@
             document.getElementById('detail-content-text').innerHTML = _curScripture.content.replace(/\n/g, '<br/>');
             document.getElementById('detail-view').scrollTop = 0;
 
-            ['background', 'discourse', 'instance'].forEach(type => {
+            ['background', 'discourse', 'instance', 'prayer'].forEach(type => {
                 document.getElementById(`form-${type}`).classList.add('hidden');
                 document.getElementById(`trigger-${type}`).classList.remove('hidden');
                 document.getElementById(`detail-${type}-input`).value = '';
@@ -2485,6 +2500,7 @@
             const bgs = (allCreations || []).filter(c => c.creation_type === 'background');
             const its = (allCreations || []).filter(c => c.creation_type === 'interpretation');
             const pts = (allCreations || []).filter(c => c.creation_type === 'practice');
+            const prs = (allCreations || []).filter(c => c.creation_type === 'prayer');
 
             document.getElementById('detail-background-container').innerHTML = bgs.map(d => `
                 <div class="bg-white p-5 rounded-xl border border-slate-100 mb-3 group transition-colors overflow-hidden">
@@ -2514,6 +2530,17 @@
                     <div class="flex items-center gap-4 border-t border-black/5 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
                         ${likeButtonHtml('creations', d.id, d.likes_count, `likeItem('${d.id}', 'creations')`)}
+                        ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('detail-prayer-container').innerHTML = prs.map(d => `
+                <div class="bg-white p-5 rounded-xl border border-slate-100 mb-3 group transition-colors overflow-hidden">
+                    <div data-report-id="${d.id}" class="text-[16px] leading-[1.8] mb-2 text-black whitespace-pre-line">${escapeHtml(d.content)}</div>
+                    <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
+                        <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
+                        ${prayButtonHtml(d.id, d.likes_count)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>
@@ -2553,6 +2580,18 @@
             document.getElementById('detail-discourse-input').value = "";
             document.getElementById('discourse-is-ai').checked = false;
             toggleInput('discourse'); refreshDetailSections(_curScripture.id);
+        }
+
+        async function submitDetailPrayer(btn) {
+            if (blockedByStatus()) return;
+            const val = document.getElementById('detail-prayer-input').value.trim();
+            if (!val) return;
+            btn.disabled = true;
+            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'prayer', author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: false }]);
+            btn.disabled = false;
+            if (error) { alert("系统拒收，原因: " + error.message); return; }
+            document.getElementById('detail-prayer-input').value = "";
+            toggleInput('prayer'); refreshDetailSections(_curScripture.id);
         }
 
         async function submitDetailInstance(btn) {
@@ -2654,6 +2693,13 @@
                 // 那句提示把人引向了完全错误的方向。
                 showError('点赞没成功', err);
             }
+        }
+
+        // 「一同祷告」：跟点赞走同一套（toggle_like + likes_log），只是换了字和图标。
+        // 只显示人数，不显示是谁（Yuan 2026-10-07 定）。
+        function prayButtonHtml(id, count) {
+            const on = hasLiked('creations', id);
+            return `<button onclick="likeItem('${id}', 'creations')" class="text-[10px] font-black transition-colors ${on ? 'text-amber-600' : 'text-slate-400 hover:text-amber-600'}">🙏 一同祷告 ${count || 0}</button>`;
         }
 
         async function likeItem(id, tableName) {
