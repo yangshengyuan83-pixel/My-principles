@@ -217,7 +217,8 @@
                     <div class="flex items-center gap-3 mb-5"><button onclick="showMeView('main')" class="text-[13px] font-bold text-slate-400 hover:text-black">‹</button><h3 class="text-[15px] font-black text-black">个人资料</h3></div>
                     <div class="space-y-2">
                         <button onclick="closeSettings(); editMyName()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>名字</span><span id="me-name" class="text-[12px] font-normal text-slate-400"></span></button>
-                        <div class="text-[10px] font-black text-slate-400 tracking-widest pt-3 pb-1">我住在</div>
+                        <!-- 个人地址：只要大概（区域/州/国家），不要门牌号（Yuan 2026-10-08）。教会地址另算。 -->
+                        <div class="text-[10px] font-black text-slate-400 tracking-widest pt-3 pb-1">我住在（大概就好，不用门牌号）</div>
                         <button onclick="closeSettings(); editProfileInfo('region')" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>区域</span><span id="me-region" class="text-[12px] font-normal text-slate-400"></span></button>
                         <button onclick="closeSettings(); editProfileInfo('state')" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>州</span><span id="me-state" class="text-[12px] font-normal text-slate-400"></span></button>
                         <button onclick="closeSettings(); editProfileInfo('country')" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>国家</span><span id="me-country" class="text-[12px] font-normal text-slate-400"></span></button>
@@ -362,7 +363,7 @@
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500/60"></span>
                             <span class="text-[13px] font-black text-slate-700 group-hover:text-blue-700 transition-colors">我的创作</span>
                         </div>
-                        <div class="text-[11px] text-slate-400 mt-1 leading-[1.7]">我发过的经文、背景、解读、实践</div>
+                        <div class="text-[11px] text-slate-400 mt-1 leading-[1.7]">我发过的经文、背景、灵修心得、实践</div>
                     </div>
                     <div onclick="openActivityModal('likes')" class="px-4 py-3 rounded-xl bg-slate-50 hover:bg-white border border-slate-100 hover:border-red-300 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2">
@@ -760,9 +761,9 @@
             </div>
 
             <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-6 transition-colors overflow-hidden">
-                <h3 class="text-[11px] font-black text-slate-400 mb-4 uppercase tracking-widest">经文解读</h3>
+                <h3 class="text-[11px] font-black text-slate-400 mb-4 uppercase tracking-widest">灵修心得</h3>
                 <div id="detail-discourse-container"></div>
-                <div id="trigger-discourse" onclick="toggleInput('discourse')" class="w-full bg-white border-2 border-slate-100 border-dashed rounded-xl py-3 cursor-pointer text-[12px] font-bold text-slate-400 hover:border-slate-300 hover:text-black transition-all text-center mt-3">+ 添加经文解读</div>
+                <div id="trigger-discourse" onclick="toggleInput('discourse')" class="w-full bg-white border-2 border-slate-100 border-dashed rounded-xl py-3 cursor-pointer text-[12px] font-bold text-slate-400 hover:border-slate-300 hover:text-black transition-all text-center mt-3">+ 添加灵修心得</div>
                 <div id="form-discourse" class="hidden mt-3">
                     <textarea id="detail-discourse-input" placeholder="输入你的启发..." class="w-full bg-white text-[15px] text-black p-4 rounded-xl outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
                     <div class="flex justify-end items-center gap-6 mt-3">
@@ -1773,13 +1774,13 @@
         const ACT_COLS = 'id, scripture_id, creation_type, content, created_at, likes_count, scripture(title)';
         const ACT_TAG = {
             background:     ['背景介绍', 'bg-slate-500/20 text-slate-400'],
-            interpretation: ['经文解读', 'bg-purple-500/20 text-purple-400'],
+            interpretation: ['灵修心得', 'bg-purple-500/20 text-purple-400'],
             practice:       ['实践分享', 'bg-blue-500/20 text-blue-400'],
             scripture:      ['核心经文', 'bg-yellow-500/10 text-yellow-500'],
         };
         const ACT_TITLE = {
             scripture: '我发布的经文', background: '背景介绍',
-            interpretation: '经文解读', practice: '实践分享',
+            interpretation: '灵修心得', practice: '实践分享',
         };
         let _act = {};
 
@@ -1936,7 +1937,7 @@
                 uniqueCreations = uniqueCreations.map(item => {
                     let typeLabel = '未知', tagColor = 'bg-slate-500/20 text-slate-400';
                     if (item.creation_type === 'background') { typeLabel = '背景介绍'; tagColor = 'bg-slate-500/20 text-slate-400'; }
-                    else if (item.creation_type === 'interpretation') { typeLabel = '经文解读'; tagColor = 'bg-purple-500/20 text-purple-400'; }
+                    else if (item.creation_type === 'interpretation') { typeLabel = '灵修心得'; tagColor = 'bg-purple-500/20 text-purple-400'; }
                     else if (item.creation_type === 'practice') { typeLabel = '实践分享'; tagColor = 'bg-blue-500/20 text-blue-400'; }
                     return { ...item, typeLabel, tagColor };
                 });
@@ -1994,8 +1995,8 @@
                             ${bgList.length > 0 ? bgList.map(renderCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无背景互动</div>'}
                         </div>
                         <div class="flex flex-col gap-4">
-                            <h3 class="text-[10px] font-black tracking-widest text-slate-400 uppercase border-b border-white/10 pb-2">经文解读 (${intList.length})</h3>
-                            ${intList.length > 0 ? intList.map(renderCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无解读互动</div>'}
+                            <h3 class="text-[10px] font-black tracking-widest text-slate-400 uppercase border-b border-white/10 pb-2">灵修心得 (${intList.length})</h3>
+                            ${intList.length > 0 ? intList.map(renderCard).join('') : '<div class="text-[10px] text-slate-600 italic mt-2">暂无灵修心得</div>'}
                         </div>
                         <div class="flex flex-col gap-4">
                             <h3 class="text-[10px] font-black tracking-widest text-slate-400 uppercase border-b border-white/10 pb-2">实践分享 (${pracList.length})</h3>
@@ -2687,7 +2688,7 @@
 
         // 恢复：修补5：仅仅修改了这里的极简级联删除逻辑
         async function deleteScripture(id) {
-            if (!confirm("彻底删除主经文？（所有相关的背景、解读和实践将由系统自动销毁）")) return;
+            if (!confirm("彻底删除主经文？（所有相关的背景、灵修心得和实践将由系统自动销毁）")) return;
             if (!await assertMine('scripture', id)) return;
             const { error } = await _db.from('scripture').delete().eq('id', id);
             if (error) { alert('删除失败：' + error.message); return; }
@@ -2795,7 +2796,8 @@
         function memberLabel(m) {
             const r = m && m.role;
             const shown = (!r || r === 'none') ? '' : r + ' ';
-            return shown + memberName(m);
+            // 2026-10-09 Yuan：管理员要有一个大家都看得到的标记
+            return shown + memberName(m) + (m && m.is_admin ? '（管理员）' : '');
         }
 
         function myChurch() {
@@ -2805,7 +2807,7 @@
         async function loadChurchTree() {
             const [mRes, gRes] = await Promise.all([
                 _db.from('profiles')
-                   .select('id, real_name, nickname, role, status, church_name, shepherd_id, group_id, voice_lang'),
+                   .select('id, real_name, nickname, role, status, church_name, shepherd_id, group_id, voice_lang, is_admin'),
                 _db.from('church_groups').select('*').order('sort_order').order('group_no')
             ]);
             logReadError('教会人员', mRes.error);

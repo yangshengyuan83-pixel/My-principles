@@ -148,7 +148,7 @@
         chapters: [
           {label:'经文原文', text: s.content, idx:0},
           {label:'背景介绍', text: byType.background || '', idx:1},
-          {label:'经文解读', text: byType.interpretation || '', idx:2},
+          {label:'灵修心得', text: byType.interpretation || '', idx:2},
           {label:'生命实践与祷告', text: byType.practice || '', idx:3}
           ].filter(function(c){return c.text;})
       };
