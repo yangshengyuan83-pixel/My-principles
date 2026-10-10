@@ -217,6 +217,11 @@
                     <div class="flex items-center gap-3 mb-5"><button onclick="showMeView('main')" class="text-[13px] font-bold text-slate-400 hover:text-black">‹</button><h3 class="text-[15px] font-black text-black">个人资料</h3></div>
                     <div class="space-y-2">
                         <button onclick="closeSettings(); editMyName()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>名字</span><span id="me-name" class="text-[12px] font-normal text-slate-400"></span></button>
+                        <!-- 我的职分。**只对「自己从网上进来、教会里还没有牧者」的人显示**
+                             （Yuan 2026-10-10：第一个人选了身份就有权限，选错了随时能改回去）。
+                             被邀请进来的人不显示——他们的职分由牧者确认，不能自己改。
+                             真正的条件在数据库 set_my_own_role 里卡，这里只决定显不显示。 -->
+                        <button id="me-role-row" onclick="openMyRolePicker()" class="hidden w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>我的职分</span><span id="me-role" class="text-[12px] font-normal text-slate-400"></span></button>
                         <!-- 教会那一行 2026-10-10 挪走了：现在在左栏，跟人员树在一起
                              （Yuan：「不要分开放，有点乱」）。这里不再重复放一个入口——
                              同一件事摆两处，改了一个另一个不会跟着变（这个教训 09-26 记过）。 -->
@@ -773,6 +778,9 @@
                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
                 <div id="church-list" class="mt-3 space-y-1 max-h-64 overflow-y-auto custom-scroll"></div>
                 <button id="church-new-btn" onclick="showChurchCreate()" class="hidden mt-5 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">＋ 新建教会</button>
+                <!-- 只有管理员看得到：最近新建的教会，方便 Yuan 定期核对有没有人建错/建重。
+                     （2026-10-10 Yuan 要的 d：「我们也需要核对」） -->
+                <div id="church-recent" class="hidden mt-5 pt-4 border-t border-slate-100"></div>
                 <div id="church-no-pastor-hint" class="hidden text-[12px] text-slate-400 mt-5 leading-[1.8]">列表里没有你的教会？你可以自己建一间——点下面「＋ 新建教会」。建之前系统会先找找有没有相近的，免得建重了。</div>
             </div>
 
@@ -784,11 +792,25 @@
                 <div class="space-y-2">
                     <input id="church-new-name" placeholder="教会名字" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
                     <input id="church-new-address" placeholder="详细地址（要门牌号）" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                    <!-- 区域/州/国家都挂了建议列表（datalist）：边打边浮出已经有人填过的写法，
+                         点一下就填上。Yuan 2026-10-10：「我自己在输入 springvale 时拼写不确定，
+                         如果下面有弹出像是的，我就直接点 springvale，防止出错」。
+                         ⚠️ 用 datalist 而不是下拉框：下拉框会把没列出来的国家/州**挡住**，
+                            而这个 App 以后可能有别的国家的教会。给建议，不设限。 -->
                     <div class="grid grid-cols-3 gap-2">
-                        <input id="church-new-region" placeholder="区域" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
-                        <input id="church-new-state" placeholder="州" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
-                        <input id="church-new-country" placeholder="国家" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                        <input id="church-new-region" list="dl-region" placeholder="区域" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                        <input id="church-new-state" list="dl-state" placeholder="州" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                        <input id="church-new-country" list="dl-country" placeholder="国家" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
                     </div>
+                    <datalist id="dl-region"></datalist>
+                    <datalist id="dl-state"></datalist>
+                    <datalist id="dl-country">
+                        <option value="Australia"></option><option value="New Zealand"></option>
+                        <option value="Singapore"></option><option value="Malaysia"></option>
+                        <option value="United States"></option><option value="Canada"></option>
+                        <option value="United Kingdom"></option><option value="日本"></option>
+                        <option value="대한민국"></option>
+                    </datalist>
                 </div>
                 <div class="text-[12px] text-slate-400 mt-3 leading-[1.7]">教会地址**要门牌号**（以后「附近的教会」要用）。你自己住哪在「个人资料」里填，那个只要大概。</div>
                 <div id="church-similar" class="mt-4 space-y-2"></div>
@@ -894,6 +916,18 @@
             if (v === 'profile') {
                 const P = _myProfile || {};
                 document.getElementById('me-name').innerText    = P.real_name || P.nickname || '未填';
+                // 「我的职分」只给「自己从网上进来、教会里还没有牧者」的人看。
+                // 被邀请进来的人不显示——他们的职分由牧者确认，自己改不了（数据库也会拒）。
+                // 教会里有没有别的牧者，这里判断不了（人员还没加载），所以只按
+                // 「没有邀请人 + 已经有教会」来显示；真条件由 set_my_own_role 卡，
+                // 不满足时它会把原因说清楚。
+                const roleRow = document.getElementById('me-role-row');
+                if (roleRow) {
+                    const 可以自己定 = !P.inviter_id && !!P.church_id;
+                    roleRow.classList.toggle('hidden', !可以自己定);
+                    const lab = document.getElementById('me-role');
+                    if (lab) lab.innerText = (!P.role || P.role === 'none') ? '还没选' : P.role;
+                }
                 document.getElementById('me-region').innerText  = P.region  || '未填';
                 document.getElementById('me-state').innerText   = P.state   || '未填';
                 document.getElementById('me-country').innerText = P.country || '未填';
@@ -1699,6 +1733,35 @@
         // 谁能建教会：牧者 + 管理员。下面只决定按钮显不显示；
         // 真正的拦截在数据库（create_church 里查 can_create_church），绕过界面也建不了。
 
+        // 教会第一个人自己定职分。
+        //
+        // Yuan 2026-10-10：「第一个人只要选择了自己的身份，就拥有对应的权限。
+        // 但如果是选择错了，它还可以随时修改回去。先靠信任来做，发现问题再来改。」
+        // **不做 N 人确认、不做「自称」标记**——那套（3 人确认 + 证书）
+        // 在 2026-09-30 和 2026-10-10 被否过两次。
+        //
+        // 为什么用 prompt 这么简陋：这是极少数人、一辈子用一两次的入口
+        // （一间教会只有第一个人会走到这里）。为它做一个正式的弹窗，
+        // 代码多一块、以后每次改界面都要照顾它，不值。
+        const ROLE_CHOICES = ['牧师', '师母', '牧者', '牧夫', '牧女', '职司', '仆人', 'VIP'];
+
+        async function openMyRolePicker() {
+            const now = (_myProfile && _myProfile.role && _myProfile.role !== 'none') ? _myProfile.role : '';
+            const ans = prompt(
+                '你在教会的职分是？\n\n' + ROLE_CHOICES.map((r, i) => (i + 1) + '. ' + r).join('\n')
+              + '\n\n输入编号或直接写职分名。选错了随时可以再来改。', now);
+            if (ans === null) return;
+            const v = String(ans).trim();
+            if (!v) return;
+            const role = /^[1-8]$/.test(v) ? ROLE_CHOICES[parseInt(v, 10) - 1] : v;
+
+            const { error } = await _db.rpc('set_my_own_role', { p_role: role });
+            if (error) { showError('设不了', error); return; }
+            await loadMyStatus();
+            loadProfileInfo();
+            loadChurchTree();
+        }
+
         // 2026-10-10 放开成「登录就能建」。
         // 原来是牧者+管理员，但那样会把「自己从网上来、教会还不在列表里」的人卡死：
         // 建教会要牧者身份，而设职分又要先有教会——两边互相等。
@@ -1732,6 +1795,7 @@
                 m.classList.remove('opacity-0');
                 document.getElementById('church-modal-box').classList.remove('scale-95');
                 loadChurchList();
+                loadRecentChurches();
             }, 10);
         }
 
@@ -1824,6 +1888,46 @@
             document.getElementById('church-similar').innerHTML = '';
             document.getElementById('church-picker-main').classList.add('hidden');
             document.getElementById('church-create-form').classList.remove('hidden');
+            loadAddressSuggest();
+        }
+
+        // 区域/州的建议列表。两个来源：
+        //   · 已有教会填过的（_churchList 里就有，不用再请求）
+        //   · 大家在「我 → 个人资料」里填过的（suggest_profile_values，现成的函数）
+        // 填不出来也不要紧——datalist 是建议，不是限制。
+        async function loadAddressSuggest() {
+            const put = (elId, vals) => {
+                const el = document.getElementById(elId);
+                if (!el) return;
+                const uniq = [...new Set(vals.filter(v => v && String(v).trim()))].slice(0, 40);
+                el.innerHTML = uniq.map(v => '<option value="' + escapeHtml(String(v)) + '"></option>').join('');
+            };
+            put('dl-region', _churchList.map(c => c.region));
+            put('dl-state',  _churchList.map(c => c.state));
+
+            try {
+                const [r, st] = await Promise.all([
+                    _db.rpc('suggest_profile_values', { p_field: 'region', p_q: '' }),
+                    _db.rpc('suggest_profile_values', { p_field: 'state',  p_q: '' })
+                ]);
+                if (!r.error  && r.data)  put('dl-region', _churchList.map(c=>c.region).concat(r.data.map(x=>x.value)));
+                if (!st.error && st.data) put('dl-state',  _churchList.map(c=>c.state ).concat(st.data.map(x=>x.value)));
+            } catch (e) { /* 建议拿不到就算了，不挡着人填 */ }
+        }
+
+        // 只有管理员看得到：最近新建的教会。给 Yuan 定期核对有没有人建错、建重。
+        async function loadRecentChurches() {
+            const box = document.getElementById('church-recent');
+            if (!box) return;
+            if (!(_myProfile && _myProfile.is_admin)) { box.classList.add('hidden'); return; }
+            const { data, error } = await _db.from('churches')
+                .select('name, address, created_at').order('created_at', { ascending: false }).limit(5);
+            if (error || !data || !data.length) { box.classList.add('hidden'); return; }
+            box.classList.remove('hidden');
+            box.innerHTML = '<div class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">最近新建（只有你看得到）</div>'
+              + data.map(c => '<div class="text-[11px] text-slate-500 leading-[1.7] truncate">'
+                  + escapeHtml(c.name) + ' · ' + escapeHtml(c.address || '')
+                  + ' <span class="text-slate-300">' + String(c.created_at || '').slice(0, 10) + '</span></div>').join('');
         }
 
         function editChurch(id) {
@@ -1841,6 +1945,7 @@
             document.getElementById('church-similar').innerHTML = '';
             document.getElementById('church-picker-main').classList.add('hidden');
             document.getElementById('church-create-form').classList.remove('hidden');
+            loadAddressSuggest();
         }
 
         async function submitNewChurch(btn) {
@@ -1851,6 +1956,13 @@
             const country = document.getElementById('church-new-country').value.trim();
             if (!name)    { alert('还没填教会名字'); return; }
             if (!address) { alert('还没填详细地址（要门牌号）'); return; }
+
+            // 建新教会时，最后给一次完整预览（Yuan 2026-10-10：「需要它再三确认，不要出错」）。
+            // 改已有教会不弹——那是随手修个错字，每次都拦一下会烦。
+            if (!_churchEditId) {
+                const 地 = [address, region, state, country].filter(Boolean).join('，');
+                if (!confirm('确认无误？建好之后别人就会在列表里看到它。\n\n教会名：' + name + '\n地址：' + 地)) return;
+            }
 
             const orig = btn.innerText;
             btn.disabled = true; btn.innerText = '保存中…';
