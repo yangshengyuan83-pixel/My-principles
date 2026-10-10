@@ -217,10 +217,9 @@
                     <div class="flex items-center gap-3 mb-5"><button onclick="showMeView('main')" class="text-[13px] font-bold text-slate-400 hover:text-black">‹</button><h3 class="text-[15px] font-black text-black">个人资料</h3></div>
                     <div class="space-y-2">
                         <button onclick="closeSettings(); editMyName()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>名字</span><span id="me-name" class="text-[12px] font-normal text-slate-400"></span></button>
-                        <!-- 教会（2026-10-10）：从已有教会里**选**，不再自己手写一个名字。
-                             手写的坑见 09a：「名字会出现三种写法指同一个人」，教会名同病。
-                             现在教会是单独一张表（churches），这里存的是 church_id。 -->
-                        <button onclick="openChurchPicker()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>教会</span><span id="me-church" class="text-[12px] font-normal text-slate-400"></span></button>
+                        <!-- 教会那一行 2026-10-10 挪走了：现在在左栏，跟人员树在一起
+                             （Yuan：「不要分开放，有点乱」）。这里不再重复放一个入口——
+                             同一件事摆两处，改了一个另一个不会跟着变（这个教训 09-26 记过）。 -->
                         <!-- 个人地址：只要大概（区域/州/国家），不要门牌号（Yuan 2026-10-08）。教会地址另算。 -->
                         <div class="text-[10px] font-black text-slate-400 tracking-widest pt-3 pb-1">我住在（大概就好，不用门牌号）</div>
                         <button onclick="closeSettings(); editProfileInfo('region')" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>区域</span><span id="me-region" class="text-[12px] font-normal text-slate-400"></span></button>
@@ -265,26 +264,29 @@
                      **全是编的假数据**——一个看起来有 14 个人的社区实际只有 2 个人，
                      那种界面骗的是自己。现在全部来自真实数据。 -->
                 <div>
-                    <div class="flex items-baseline justify-between mb-3">
-                        <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">教会人员</h3>
+                    <!-- 教会 + 人员，整合成一块（2026-10-10，Yuan：「教会放到左边和人员放到一起，
+                         不要分开放，有点乱」）。读下来是一件完整的事：这间教会叫什么、在哪、有谁。
+                         点上面那块可以换教会 / 改教会资料。
+                         原来教会入口在「我 → 个人资料」里，和这棵人员树分在两处。
+
+                         ⚠️ 这里显示的是**教会地址**（churches 表，要门牌号）。
+                            原来这个位置是三行 Springvale / VIC / Australia，那是
+                            profiles 上**这个人自己**的区域/州/国家，摆在「教会人员」下面
+                            一直容易被当成教会在哪（2026-09-26 的注释里已经写了「以后要拆开」）。
+                            现在拆了：教会地址在这里，个人住址留在「我 → 个人资料」那一处。 -->
+                    <div onclick="openChurchPicker()" class="mb-4 -mx-2 px-2 py-2 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <h3 id="church-name-label" class="text-[13px] font-black text-black truncate">教会</h3>
+                            <span class="text-[10px] font-bold text-slate-300 shrink-0">换 ›</span>
+                        </div>
+                        <div id="church-address-label" class="text-[11px] text-slate-400 leading-[1.6] mt-0.5"></div>
+                    </div>
+
+                    <div class="flex items-baseline justify-between mb-3 pt-3 border-t border-slate-100">
+                        <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">人员</h3>
                         <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
                     </div>
                     <div id="church-tree" class="text-[12px] space-y-0.5"></div>
-
-                    <!-- 教会在哪。2026-09-26 从右边的档案栏挪过来，跟人员并成一块——
-                         「Hosanna 人员 / 各语言组 / Springvale · VIC · Australia」
-                         读下来是一件完整的事：这间教会有谁、在哪。
-                         ⚠️ 这三项存的是 profiles 上**这个人**的区域/州/国家，
-                         不是教会的。对 Yuan 来说两者一样，以后如果出现
-                         "人在别的城市、教会在这里"，这里要拆开。 -->
-                    <div class="mt-4 pt-3 border-t border-slate-100 space-y-0.5 text-[12px]">
-                        <div onclick="editProfileInfo('region')" id="profile-region"
-                             class="px-2 py-1 rounded text-slate-400 cursor-pointer hover:bg-slate-50 hover:text-slate-600 transition-colors truncate">区域</div>
-                        <div onclick="editProfileInfo('state')" id="profile-state"
-                             class="px-2 py-1 rounded text-slate-400 cursor-pointer hover:bg-slate-50 hover:text-slate-600 transition-colors truncate">州</div>
-                        <div onclick="editProfileInfo('country')" id="profile-country"
-                             class="px-2 py-1 rounded text-slate-400 cursor-pointer hover:bg-slate-50 hover:text-slate-600 transition-colors truncate">国家</div>
-                    </div>
 
                     <div id="group-editor" class="hidden mt-5 pt-4 border-t border-slate-100">
                         <div id="group-list" class="space-y-1 mb-3"></div>
@@ -874,7 +876,6 @@
             if (v === 'profile') {
                 const P = _myProfile || {};
                 document.getElementById('me-name').innerText    = P.real_name || P.nickname || '未填';
-                document.getElementById('me-church').innerText = P.church_name || '还没选';
                 document.getElementById('me-region').innerText  = P.region  || '未填';
                 document.getElementById('me-state').innerText   = P.state   || '未填';
                 document.getElementById('me-country').innerText = P.country || '未填';
@@ -1133,7 +1134,7 @@
                 //
                 // 教训：**删一列之前，先搜一遍还有谁在 select 它。**
                 // 这不是"改代码"和"改数据库"两件事，是同一件事的两半。
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, shepherd_id, region, state, country, is_report_reviewer')
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches(name, address, region, state, country), shepherd_id, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -1557,15 +1558,25 @@
             //   · 教会 —— 树的标题就是「HOSANNA 人员」
             // **同一件事在两个地方显示，改了一个另一个不会跟着变。**
             const P = _myProfile || {};
-            document.getElementById('profile-region').innerText  = P.region  || '区域';
-            document.getElementById('profile-state').innerText   = P.state   || '州';
-            document.getElementById('profile-country').innerText = P.country || '国家';
 
-
-            // 左边那棵教会人员树的标题也跟着教会名走
-            const churchDisplay = (church && church !== '教会名') ? church : '教会';
-            const treeTitle = document.getElementById('church-tree-title');
-            if (treeTitle) treeTitle.innerText = churchDisplay + '人员';
+            // 左栏顶上那块：教会名 + 教会地址。
+            // C 是 profiles 关联出来的 churches 那一行（没选教会时是 null）。
+            // ⚠️ 显示的是**教会**的地址，不是 P.region/P.state/P.country——
+            //    那三个是这个人自己住哪，在「我 → 个人资料」里填。
+            const C = P.churches || null;
+            const nameEl = document.getElementById('church-name-label');
+            const addrEl = document.getElementById('church-address-label');
+            if (nameEl) nameEl.innerText = C ? C.name : '还没选教会';
+            if (addrEl) {
+                if (!C) {
+                    addrEl.innerText = '点这里选你的教会';
+                } else {
+                    // 地址还是「（待补）」就不显示那四个字，直接提示去填
+                    const parts = [C.address, C.region, C.state, C.country]
+                        .filter(x => x && x !== '（待补）');
+                    addrEl.innerText = parts.length ? parts.join(' · ') : '地址还没填，点这里补上';
+                }
+            }
         }
 
         function openRoleSelector() {
@@ -1689,6 +1700,11 @@
                 const isMine  = c.id === mine;
                 // 「改」只给能建教会的人，而且只改自己这间（数据库那边也是这么卡的）
                 const canEdit = canCreateChurch() && isMine;
+                // 「删」只给建它的那个人，而且只在**空教会**上出现。
+                // 2026-10-10 补的：Yuan 测试查重时建了个重复的 HOSANNA，发现没地方删。
+                // 每个牧者第一次用大概都会这样。数据库那边 delete_church 也会再卡一次。
+                const canDel  = c.created_by && c.created_by === currentUserId()
+                                && (c['人数'] || 0) === 0 && !isMine;
                 return '<div class="flex items-start justify-between gap-2 px-4 py-3 rounded-xl '
                      + (isMine ? 'bg-black text-white' : 'hover:bg-slate-100 cursor-pointer')
                      + '" ' + (isMine ? '' : 'onclick="pickChurch(\'' + c.id + '\')"') + '>'
@@ -1699,6 +1715,7 @@
                      + '<div class="flex items-center gap-2 shrink-0">'
                      +   '<span class="text-[11px] ' + (isMine ? 'text-white/60' : 'text-slate-400') + '">' + (c['人数'] || 0) + ' 人</span>'
                      +   (canEdit ? '<button onclick="event.stopPropagation(); editChurch(\'' + c.id + '\')" class="text-[11px] font-bold underline">改</button>' : '')
+                     +   (canDel  ? '<button onclick="event.stopPropagation(); removeChurch(\'' + c.id + '\')" class="text-[11px] font-bold text-red-400 hover:text-red-600 underline">删</button>' : '')
                      + '</div></div>';
             }).join('');
         }
@@ -1710,6 +1727,15 @@
             await loadMyStatus();
             loadProfileInfo();
             if (typeof loadChurchTree === 'function') loadChurchTree();
+        }
+
+        // 删空教会。真正的限制在数据库（delete_church：只有建的人、只能删空的）。
+        async function removeChurch(id) {
+            const c = _churchList.find(x => x.id === id);
+            if (!confirm('删掉「' + ((c && c.name) || '这间教会') + '」？\n只有没人加入的教会才能删。')) return;
+            const { data, error } = await _db.rpc('delete_church', { p_church_id: id });
+            if (error) { alert('删不了：' + error.message); return; }
+            loadChurchList();
         }
 
         function showChurchCreate() {
