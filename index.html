@@ -282,6 +282,15 @@
                         <div id="church-address-label" class="text-[11px] text-slate-400 leading-[1.6] mt-0.5"></div>
                     </div>
 
+                    <!-- 「等你确认」：只有牧者看得到，而且只在有人等着的时候才出现。
+                         名单不存新状态，是推出来的——邀请他的那位弟兄姊妹，他的牧者是我。
+                         现实里本来就是这个意思：我把他介绍给我的牧者。
+                         （设计见 06_产品决策记录/2026-10-10_新人进来的完整流程_重新设计.md） -->
+                    <div id="confirm-queue-box" class="hidden mb-4 pt-3 border-t border-slate-100">
+                        <h3 class="text-[10px] font-black text-amber-600 tracking-widest uppercase mb-2">等你确认</h3>
+                        <div id="confirm-queue-list" class="text-[12px] space-y-1"></div>
+                    </div>
+
                     <div class="flex items-baseline justify-between mb-3 pt-3 border-t border-slate-100">
                         <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">人员</h3>
                         <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
@@ -290,13 +299,19 @@
 
                     <div id="group-editor" class="hidden mt-5 pt-4 border-t border-slate-100">
                         <div id="group-list" class="space-y-1 mb-3"></div>
+                        <!-- 2026-10-10 改成树形：组名自己起 + 可以选一个上级组。
+                             原来是写死的「语言 + 1~4 组」两段结构，别的教会不一定这么分。
+                             Yuan：「像别的聊天软件建立群组一样，需要就建语言组，再需要就建下级 1234 组」。
+                             数据上不限层数，界面只做两层。 -->
+                        <select id="new-group-parent" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all mb-1.5">
+                            <option value="">建一个顶层组</option>
+                        </select>
                         <div class="flex gap-1.5">
-                            <input id="new-group-lang" placeholder="语言" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all">
-                            <input id="new-group-no" type="number" min="1" max="99" placeholder="组" class="w-11 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[12px] outline-none focus:border-black transition-all">
+                            <input id="new-group-name" placeholder="组名（中文 / 青年 / 1 组 …）" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all">
                             <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-3 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
                         </div>
                         <div class="text-[11px] text-slate-400 mt-2 leading-[1.7]">
-                            语言写什么都行。<span class="font-bold text-slate-500">删组不动任何人的档案。</span>
+                            名字自己起，分不分层都行。<span class="font-bold text-slate-500">删组不动任何人的档案。</span>
                         </div>
                     </div>
                 </div>
@@ -674,7 +689,10 @@
                 <select id="confirm-shepherd-input" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all appearance-none cursor-pointer">
                     <option value="">他属于谁的家庭牧场</option>
                 </select>
-                <input id="confirm-church-input"   placeholder="教会" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <!-- 「教会」那一栏 2026-10-10 拿掉了：教会不再手填。
+                     用邀请码进来的人自动跟邀请人同一间教会（数据库触发器），
+                     自己来的人在「选择你的教会」里选。确认这一步不该再问一遍，
+                     更不能让牧者在这里打一个和 churches 表对不上的名字。 -->
             </div>
             <div id="confirm-error" class="text-[13px] text-red-500 mt-4 leading-[1.8]"></div>
             <button id="btn-confirm-submit" onclick="submitConfirm(this)" class="mt-7 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">确认通过</button>
@@ -1263,7 +1281,7 @@
             }
 
             const { data, error } = await _db.from('profiles')
-                .select('id, real_name, nickname, status, created_at')
+                .select('id, real_name, nickname, status, created_at, vouched_by')
                 .eq('inviter_id', currentUserId())
                 .order('created_at', { ascending: false });
             logReadError('我邀请的人', error);
@@ -1313,11 +1331,47 @@
                             ${formatSimpleDate(p.created_at)}
                         </div>
                     </div>
-                    ${done
-                      ? `<button onclick="doUnconfirm('${p.id}')" class="text-[11px] font-black text-slate-400 hover:text-red-500 flex-shrink-0 whitespace-nowrap">已通过 · 撤销</button>`
-                      : `<button onclick="openConfirmModal('${p.id}', '${(name).replace(/'/g, "\\'")}')" class="text-[11px] font-black bg-black text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex-shrink-0 whitespace-nowrap">确认</button>`}
+                    ${invitedActionHtml(p, name, done)}
                 </div>`;
             }).join('');
+        }
+
+        // 「我邀请的人」那一栏，每个人右边该出现什么按钮。
+        //
+        // ⚠️ 2026-10-10 补的。在这之前这里只有一个「确认」，它直接调 confirm_member——
+        //    可是数据库要求**必须是牧者**，所以一个普通会友点下去，
+        //    会收到一句「请先请邀请他的人点『我认得他』」，
+        //    **而那个按钮在网页上从来就不存在**（vouch_member 09-26 建好了，一直没接）。
+        //    等于把人指向一个不存在的东西。
+        //
+        // 现在分三种：
+        //   · 已通过        → 撤销（撤销本来就只有牧者能做，数据库会卡）
+        //   · 我是牧者      → 确认（填职分 + 家庭牧场）
+        //   · 我不是牧者    → 「我认得他」；点过了就显示在等牧者
+        function invitedActionHtml(p, name, done) {
+            const safe = String(name).replace(/'/g, '');
+            if (done) {
+                return '<button onclick="doUnconfirm(\'' + p.id + '\')" class="text-[11px] font-black text-slate-400 hover:text-red-500 flex-shrink-0 whitespace-nowrap">已通过 · 撤销</button>';
+            }
+            if (isPastorMe()) {
+                return '<button onclick="openConfirmModal(\'' + p.id + '\', \'' + safe + '\')" class="text-[11px] font-black bg-black text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex-shrink-0 whitespace-nowrap">确认</button>';
+            }
+            if (p.vouched_by) {
+                return '<span class="text-[11px] font-bold text-slate-400 flex-shrink-0 whitespace-nowrap text-right leading-[1.6]">已认得<br>等牧者确认</span>';
+            }
+            return '<button onclick="vouchMember(\'' + p.id + '\', \'' + safe + '\')" class="text-[11px] font-black bg-black text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex-shrink-0 whitespace-nowrap">我认得他</button>';
+        }
+
+        // 「我认得他」= 为他的身份作证。**这一步不给发言权**，
+        // 它是牧者能确认他的前提（confirm_member 第一件事就是查有没有人认过他）。
+        // 点完之后，他会出现在「邀请人的牧者」的「等你确认」名单里——
+        // 现实里就是：我把他介绍给我的牧者。
+        async function vouchMember(userId, name) {
+            if (!confirm('你在现实中认得「' + name + '」吗？\n点了之后，他会出现在你牧者的「等你确认」名单里。\n这一步还不会让他能发布内容。')) return;
+            const { error } = await _db.rpc('vouch_member', { p_user_id: userId });
+            if (error) { showError('认不了', error); return; }
+            await refreshPendingList();
+            await loadChurchTree();
         }
 
         // 输够 6 位就去查这张码是谁的，让他知道自己是被谁邀请的。
@@ -1346,7 +1400,7 @@
             _confirmTargetId = userId;
             document.getElementById('confirm-who').innerHTML =
                 '要确认的是：<span class="font-black text-black">' + name + '</span>';
-            ['confirm-role-input','confirm-church-input','confirm-shepherd-input']
+            ['confirm-role-input','confirm-shepherd-input']
                 .forEach(id => document.getElementById(id).value = '');
 
             // 把真实的牧者填进下拉框。一个都没有的时候留一句话，
@@ -1384,12 +1438,14 @@
                 const { error } = await _db.rpc('confirm_member', {
                     p_user_id:     _confirmTargetId,
                     p_role:        document.getElementById('confirm-role-input').value.trim(),
-                    p_church:      document.getElementById('confirm-church-input').value.trim(),
+                    // p_church 不再传：2026-10-10 起 confirm_member 不碰 church_name 了（见 15h）。
+                    // 传空字符串会把继承来的教会名清掉，那是真会出事的。
                     p_shepherd_id: document.getElementById('confirm-shepherd-input').value || null
                 });
                 if (error) throw error;
                 closeConfirmModal();
                 await refreshPendingList();
+                await loadChurchTree();      // 人员树和「等你确认」要跟着变
             } catch (e) {
                 err.innerText = e.message || '确认失败，再试一次';
             } finally {
@@ -3075,26 +3131,70 @@
             return shown + memberName(m) + (m && m.is_admin ? '（管理员）' : '');
         }
 
-        function myChurch() {
-            return (_myProfile && _myProfile.church_name) || '';
-        }
+        function myChurch()   { return (_myProfile && _myProfile.church_name) || ''; }
+        function myChurchId() { return (_myProfile && _myProfile.church_id)   || ''; }
 
+        // 2026-10-10 改：按 church_id 过滤。
+        //
+        // 以前成员那一句**根本没有过滤**，一次把所有人都拉下来；
+        // 组那一句写的是「我没有教会时全部显示」。只有一间教会的时候看不出来，
+        // 有了第二间就露馅了——Yuan：「我既然还不在 hosanna 教会里，
+        // 那下面的人员有什么意思……像是悬浮在空中」。
+        //
+        // 没选教会的人**不显示任何人员**（人员是教会内部的事），改成引导他去选教会。
         async function loadChurchTree() {
+            const cid = myChurchId();
+            const box = document.getElementById('church-tree');
+            const btn = document.getElementById('btn-edit-groups');
+
+            if (!cid) {
+                _members = []; _groups = [];
+                if (btn) btn.classList.add('hidden');
+                if (box) box.innerHTML =
+                    '<div class="text-[11px] text-slate-400 leading-[1.9]">选好教会之后，这里会显示教会里的人。'
+                  + '<br><span onclick="openChurchPicker()" class="underline cursor-pointer hover:text-black">去选教会</span></div>';
+                renderGroupEditor();
+                renderPendingBox();
+                return;
+            }
+
             const [mRes, gRes] = await Promise.all([
                 _db.from('profiles')
-                   .select('id, real_name, nickname, role, status, church_name, shepherd_id, group_id, voice_lang, is_admin'),
-                _db.from('church_groups').select('*').order('sort_order').order('group_no')
+                   .select('id, real_name, nickname, role, status, church_id, shepherd_id, group_id, voice_lang, is_admin')
+                   .eq('church_id', cid),
+                _db.from('church_groups').select('*').eq('church_id', cid).order('sort_order')
             ]);
             logReadError('教会人员', mRes.error);
             logReadError('分组', gRes.error);
             _members = mRes.data || [];
-            _groups  = (gRes.data || []).filter(g => !myChurch() || g.church_name === myChurch());
+            _groups  = gRes.data || [];
 
-            const btn = document.getElementById('btn-edit-groups');
             if (btn) btn.classList.toggle('hidden', !isPastorMe());
             openMyBranch();
             renderChurchTree();
             renderGroupEditor();
+            renderPendingBox();
+        }
+
+        // 「等你确认」。只有牧者看得到，而且只在真的有人等着的时候才出现——
+        // 空名单也顶一块标题的话，每天看到的都是空的，很快就不看了。
+        async function renderPendingBox() {
+            const box  = document.getElementById('confirm-queue-box');
+            const list = document.getElementById('confirm-queue-list');
+            if (!box || !list) return;
+            if (!isPastorMe() || !currentUserId()) { box.classList.add('hidden'); return; }
+
+            const { data, error } = await _db.rpc('pending_for_me');
+            if (error || !data || !data.length) { box.classList.add('hidden'); return; }
+
+            box.classList.remove('hidden');
+            list.innerHTML = data.map(r =>
+                '<div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-amber-50 transition-colors">'
+              + '<div class="min-w-0"><div class="font-bold text-black truncate">' + escapeHtml(r['称呼']) + '</div>'
+              + '<div class="text-[10px] text-slate-400 truncate">' + escapeHtml(r['邀请人']) + ' 邀请的'
+              + (r['邀请人认过他'] ? ' · 已认得' : ' · <span class="text-amber-600">还没认</span>') + '</div></div>'
+              + '<button onclick="openConfirmModal(\'' + r.id + '\', \'' + String(r['称呼']).replace(/[\\'\\\\]/g, '') + '\')" class="ml-auto shrink-0 text-[11px] font-black bg-black text-white px-3 py-1.5 rounded-full">确认</button>'
+              + '</div>').join('');
         }
 
         /// 第一次加载时，把"我在的那一支"自动展开。
@@ -3157,23 +3257,16 @@
                 return;
             }
 
-            const pastors = _members.filter(m => PASTOR_ROLES.includes(m.role));
-            const flockOf = p => _members.filter(m => m.shepherd_id === p.id);
+            const pastors   = _members.filter(m => PASTOR_ROLES.includes(m.role));
+            const flockOf   = p => _members.filter(m => m.shepherd_id === p.id);
             const headcount = p => 1 + flockOf(p).length;
-
-            // 语言 → 组号 → 这个组里的牧者。顺序完全按 church_groups 里的排法，
-            // 不在代码里排——中文、English、한국어 按字符排会乱。
-            const langs = [];
-            _groups.forEach(g => {
-                let L = langs.find(x => x.lang === g.lang);
-                if (!L) { L = { lang: g.lang, groups: [] }; langs.push(L); }
-                L.groups.push(g);
-            });
 
             // 还没被安排牧场的人、还没编进组的牧者。
             // **排在最前面**（2026-09-26 Yuan 定）——跟「我邀请的人」同一个道理：
             // 要人动手的东西放前面，不然翻到底下才看见，就没人去做了。
             // 也**不能藏起来**：藏起来的话一个人在系统里等于不存在，没人会想起要安排他。
+            // 2026-10-10 Yuan 定：这份名单**所有人都看得到**，不只牧者——
+            // 「这样邀请的人也可以看得到，自己邀请的人还没有被介绍到具体的家庭牧场，减少担心」。
             const noGroup = pastors.filter(p => !p.group_id);
             const orphans = _members.filter(m => !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
 
@@ -3195,40 +3288,55 @@
             }
             if (html) html += '<div class="h-2"></div>';
 
-            langs.forEach(L => {
-                const langKey = 'L' + L.lang;
-                const pastorsInLang = pastors.filter(p => L.groups.some(g => g.id === p.group_id));
-                html += treeRow(0, langKey, L.lang,
-                    pastorsInLang.reduce((n, p) => n + headcount(p), 0),
-                    true, 'font-black text-slate-600');
-                if (!_treeOpen.has(langKey)) return;
+            // ── 组是一棵树（2026-10-10）──────────────────
+            // 原来写死两层：语言 → 1~4 组。别的教会不一定这么分，
+            // 所以改成 name + parent_id 自己长出来，这里递归画。
+            // 数据上不限层数；界面上组这一层最多两级，再往下是家庭牧场和成员。
+            const childrenOf = pid => _groups.filter(g => (g.parent_id || null) === pid);
 
-                L.groups.forEach(g => {
-                    const gKey = 'G' + g.id;
-                    const inGroup = pastors.filter(p => p.group_id === g.id);
-                    html += treeRow(1, gKey, g.group_no + ' 组',
-                        inGroup.reduce((n, p) => n + headcount(p), 0),
-                        true, 'text-slate-500');
-                    if (!_treeOpen.has(gKey)) return;
+            // 一个组的人头数 = 它自己组里牧者的牧场人数 + 所有子组的
+            function groupCount(g) {
+                let n = pastors.filter(p => p.group_id === g.id).reduce((a, p) => a + headcount(p), 0);
+                childrenOf(g.id).forEach(c => n += groupCount(c));
+                return n;
+            }
 
-                    if (!inGroup.length) {
-                        html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:42px">这个组还没有牧者</div>`;
-                    }
-                    inGroup.forEach(p => {
-                        const fKey = 'F' + p.id;
-                        const flock = flockOf(p);
-                        html += treeRow(2, fKey, memberLabel(p) + ' 的家庭牧场',
-                            flock.length, true, 'text-slate-500');
-                        if (!_treeOpen.has(fKey)) return;
-                        if (!flock.length) {
-                            html += `<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:56px">还没有成员</div>`;
-                        }
-                        flock.forEach(m => html += treeRow(3, 'M' + m.id,
-                            memberLabel(m) + (m.status !== 'active' ? '（待确认）' : ''),
-                            null, false, 'text-slate-400'));
-                    });
-                });
-            });
+            // 把一位牧者的家庭牧场画出来
+            function renderFlock(p, indent) {
+                let out = '';
+                const fKey  = 'F' + p.id;
+                const flock = flockOf(p);
+                out += treeRow(indent, fKey, memberLabel(p) + ' 的家庭牧场', flock.length, true, 'text-slate-500');
+                if (!_treeOpen.has(fKey)) return out;
+                if (!flock.length) {
+                    out += '<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:'
+                         + ((indent + 1) * 14 + 14) + 'px">还没有成员</div>';
+                }
+                flock.forEach(m => out += treeRow(indent + 1, 'M' + m.id,
+                    memberLabel(m) + (m.status !== 'active' ? '（待确认）' : ''),
+                    null, false, 'text-slate-400'));
+                return out;
+            }
+
+            function renderGroup(g, indent) {
+                let out = '';
+                const gKey = 'G' + g.id;
+                const kids = childrenOf(g.id);
+                const here = pastors.filter(p => p.group_id === g.id);
+                out += treeRow(indent, gKey, g.name || '（没名字的组）', groupCount(g), true,
+                    indent === 0 ? 'font-black text-slate-600' : 'text-slate-500');
+                if (!_treeOpen.has(gKey)) return out;
+
+                if (!kids.length && !here.length) {
+                    out += '<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:'
+                         + ((indent + 1) * 14 + 14) + 'px">这个组还没有人</div>';
+                }
+                kids.forEach(c => out += renderGroup(c, indent + 1));
+                here.forEach(p => out += renderFlock(p, indent + 1));
+                return out;
+            }
+
+            childrenOf(null).forEach(g => html += renderGroup(g, 0));
 
             box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
         }
@@ -3241,45 +3349,73 @@
 
         function renderGroupEditor() {
             const box = document.getElementById('group-list');
+            const sel = document.getElementById('new-group-parent');
             if (!box) return;
-            box.innerHTML = _groups.map(g => `
-                <div class="flex items-center gap-2 text-[12px] text-slate-600">
-                    <span class="truncate">${escapeHtml(g.lang)} · ${g.group_no} 组</span>
-                    <button onclick="deleteGroup('${g.id}')" class="ml-auto text-[11px] text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">✕</button>
-                </div>`).join('') ||
-                '<div class="text-[11px] text-slate-300 italic">还没有分组</div>';
+
+            const childrenOf = pid => _groups.filter(g => (g.parent_id || null) === pid);
+
+            // 列表：顶层组 + 缩进一级的子组
+            let rows = '';
+            childrenOf(null).forEach(g => {
+                rows += groupRow(g, 0);
+                childrenOf(g.id).forEach(c => rows += groupRow(c, 1));
+            });
+            box.innerHTML = rows || '<div class="text-[11px] text-slate-300 italic">还没有分组</div>';
+
+            // 「上级组」下拉：只列顶层组。界面只做两层（Yuan 同意），
+            // 所以不让人把子组再当上级选下去。
+            if (sel) {
+                sel.innerHTML = '<option value="">建一个顶层组</option>'
+                    + childrenOf(null).map(g =>
+                        '<option value="' + g.id + '">放进「' + escapeHtml(g.name || '') + '」里</option>').join('');
+            }
         }
 
-        async function addGroup(btn) {
-            const lang = document.getElementById('new-group-lang').value.trim();
-            const no = parseInt(document.getElementById('new-group-no').value, 10);
-            if (!lang) { alert('写一个语言名'); return; }
-            if (!no || no < 1) { alert('组号要是个正整数'); return; }
-            if (!myChurch()) { alert('先在「我 → 个人资料 → 教会」里选好你的教会，分组是按教会分的'); return; }
+        function groupRow(g, indent) {
+            return '<div class="flex items-center gap-2 text-[12px] text-slate-600" style="padding-left:'
+                 + (indent * 12) + 'px">'
+                 + '<span class="truncate">' + (indent ? '· ' : '') + escapeHtml(g.name || '（没名字）') + '</span>'
+                 + '<button onclick="renameGroup(\'' + g.id + '\')" class="ml-auto text-[11px] text-slate-300 hover:text-black transition-colors flex-shrink-0">改名</button>'
+                 + '<button onclick="deleteGroup(\'' + g.id + '\')" class="text-[11px] text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">✕</button>'
+                 + '</div>';
+        }
 
-            // 同一种语言沿用已有的排序号，新语言排到最后。
-            // 顺序让教会自己形成，代码不替他们排——中文/English/한국어 按字符排会乱。
-            const same = _groups.find(g => g.lang === lang);
-            const order = same ? same.sort_order
-                               : (_groups.reduce((m, g) => Math.max(m, g.sort_order), 0) + 1);
+        // 建组、改名、删组都走数据库函数（create_group / rename_group / delete_group）。
+        // 以前是直接 insert/delete 表，权限只靠 RLS；改成函数之后，
+        // 「上级组必须是同一间教会的」「同一层不许重名」这些规矩在数据库里就卡住了。
+        async function addGroup(btn) {
+            const name   = document.getElementById('new-group-name').value.trim();
+            const parent = document.getElementById('new-group-parent').value || null;
+            if (!name) { alert('写一个组名'); return; }
+            if (!myChurchId()) { alert('先在左边选好你的教会，分组是按教会分的'); return; }
 
             btn.disabled = true;
-            const { error } = await _db.from('church_groups').insert([{
-                church_name: myChurch(), lang: lang, group_no: no, sort_order: order
-            }]);
+            const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: parent });
             btn.disabled = false;
             if (error) { showError('加不上', error); return; }
-            document.getElementById('new-group-no').value = '';
+            document.getElementById('new-group-name').value = '';
+            loadChurchTree();
+        }
+
+        async function renameGroup(id) {
+            const g = _groups.find(x => x.id === id);
+            const name = prompt('改成什么名字？', (g && g.name) || '');
+            if (name === null) return;
+            if (!name.trim()) { alert('组名不能空着'); return; }
+            const { error } = await _db.rpc('rename_group', { p_group_id: id, p_name: name.trim() });
+            if (error) { showError('改不了', error); return; }
             loadChurchTree();
         }
 
         async function deleteGroup(id) {
-            const g = _groups.find(x => x.id === id);
+            const g    = _groups.find(x => x.id === id);
+            const kids = _groups.filter(x => x.parent_id === id).length;
             const inIt = _members.filter(m => m.group_id === id).length;
+            if (kids) { alert('「' + ((g && g.name) || '这个组') + '」下面还有 ' + kids + ' 个小组，先把它们删掉。'); return; }
             if (!confirm(inIt
-                ? `「${g.lang} · ${g.group_no} 组」里还有 ${inIt} 位牧者。\n删掉之后他们会变成"还没编进组"，档案不受影响。确定吗？`
-                : `删掉「${g.lang} · ${g.group_no} 组」？`)) return;
-            const { error } = await _db.from('church_groups').delete().eq('id', id);
+                ? '「' + ((g && g.name) || '这个组') + '」里还有 ' + inIt + ' 位牧者。\n删掉之后他们会变成"还没编进组"，档案不受影响。确定吗？'
+                : '删掉「' + ((g && g.name) || '这个组') + '」？')) return;
+            const { error } = await _db.rpc('delete_group', { p_group_id: id });
             if (error) { showError('删不掉', error); return; }
             loadChurchTree();
         }
