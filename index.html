@@ -1134,7 +1134,15 @@
                 //
                 // 教训：**删一列之前，先搜一遍还有谁在 select 它。**
                 // 这不是"改代码"和"改数据库"两件事，是同一件事的两半。
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches(name, address, region, state, country), shepherd_id, region, state, country, is_report_reviewer')
+                // ⚠️ `churches!church_id(...)` 里那个 **!church_id 不能去掉**。
+                //    profiles 和 churches 之间有**两条**外键：
+                //      · profiles.church_id  → churches.id   （我属于哪间教会）
+                //      · churches.created_by → profiles.id   （这间教会是谁建的）
+                //    只写 churches(...) 的话 PostgREST 不知道走哪条，**整句 select 直接失败**
+                //    （PGRST201 "more than one relationship was found"），
+                //    _myProfile 变成 null → canWrite() 全员 false → **所有人都发布不了**。
+                //    2026-10-10 真的发生过一次：当天傍晚 6:01 的自动任务发布不了内容才发现。
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches!church_id(name, address, region, state, country), shepherd_id, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
