@@ -773,7 +773,7 @@
                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
                 <div id="church-list" class="mt-3 space-y-1 max-h-64 overflow-y-auto custom-scroll"></div>
                 <button id="church-new-btn" onclick="showChurchCreate()" class="hidden mt-5 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">＋ 新建教会</button>
-                <div id="church-no-pastor-hint" class="hidden text-[12px] text-slate-400 mt-5 leading-[1.8]">列表里没有你的教会？教会要由牧者来建。把你的邀请码给你的牧者，请他进来建一间。在这之前你照样可以读和听。</div>
+                <div id="church-no-pastor-hint" class="hidden text-[12px] text-slate-400 mt-5 leading-[1.8]">列表里没有你的教会？你可以自己建一间——点下面「＋ 新建教会」。建之前系统会先找找有没有相近的，免得建重了。</div>
             </div>
 
             <div id="church-create-form" class="hidden">
@@ -1699,9 +1699,19 @@
         // 谁能建教会：牧者 + 管理员。下面只决定按钮显不显示；
         // 真正的拦截在数据库（create_church 里查 can_create_church），绕过界面也建不了。
 
-        function canCreateChurch() {
+        // 2026-10-10 放开成「登录就能建」。
+        // 原来是牧者+管理员，但那样会把「自己从网上来、教会还不在列表里」的人卡死：
+        // 建教会要牧者身份，而设职分又要先有教会——两边互相等。
+        // 质量靠建之前那道强制查重（在数据库里，界面绕不过去），不靠限制谁能建。
+        function canCreateChurch() { return !!currentUserId(); }
+
+        // 改教会资料**没有**跟着放开：建它的人 / 这间教会的牧者 / 管理员。
+        // （Yuan 2026-10-08 定。数据库 update_church 里也是这么卡的。）
+        function canEditChurch(c) {
             const P = _myProfile || {};
-            return !!P.is_admin || PASTOR_ROLES.includes(P.role);
+            if (P.is_admin) return true;
+            if (c && c.created_by && c.created_by === currentUserId()) return true;
+            return PASTOR_ROLES.includes(P.role) && c && c.id === P.church_id;
         }
 
         let _churchSearchTimer = null;
@@ -1756,14 +1766,14 @@
             _churchList = data || [];
             if (!_churchList.length) {
                 box.innerHTML = '<div class="text-[13px] text-slate-400 italic py-4 px-1">没有找到。'
-                    + (canCreateChurch() ? '可以点下面「＋ 新建教会」。' : '请邀请你的牧者进来建。') + '</div>';
+                    + (canCreateChurch() ? '可以点下面「＋ 新建教会」。' : '登录之后可以自己建一间。') + '</div>';
                 return;
             }
             const mine = (_myProfile || {}).church_id;
             box.innerHTML = _churchList.map(c => {
                 const isMine  = c.id === mine;
                 // 「改」只给能建教会的人，而且只改自己这间（数据库那边也是这么卡的）
-                const canEdit = canCreateChurch() && isMine;
+                const canEdit = canEditChurch(c);
                 // 「删」只给建它的那个人，而且只在**空教会**上出现。
                 // 2026-10-10 补的：Yuan 测试查重时建了个重复的 HOSANNA，发现没地方删。
                 // 每个牧者第一次用大概都会这样。数据库那边 delete_church 也会再卡一次。
