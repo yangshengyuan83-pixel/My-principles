@@ -217,6 +217,10 @@
                     <div class="flex items-center gap-3 mb-5"><button onclick="showMeView('main')" class="text-[13px] font-bold text-slate-400 hover:text-black">‹</button><h3 class="text-[15px] font-black text-black">个人资料</h3></div>
                     <div class="space-y-2">
                         <button onclick="closeSettings(); editMyName()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>名字</span><span id="me-name" class="text-[12px] font-normal text-slate-400"></span></button>
+                        <!-- 教会（2026-10-10）：从已有教会里**选**，不再自己手写一个名字。
+                             手写的坑见 09a：「名字会出现三种写法指同一个人」，教会名同病。
+                             现在教会是单独一张表（churches），这里存的是 church_id。 -->
+                        <button onclick="openChurchPicker()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>教会</span><span id="me-church" class="text-[12px] font-normal text-slate-400"></span></button>
                         <!-- 个人地址：只要大概（区域/州/国家），不要门牌号（Yuan 2026-10-08）。教会地址另算。 -->
                         <div class="text-[10px] font-black text-slate-400 tracking-widest pt-3 pb-1">我住在（大概就好，不用门牌号）</div>
                         <button onclick="closeSettings(); editProfileInfo('region')" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>区域</span><span id="me-region" class="text-[12px] font-normal text-slate-400"></span></button>
@@ -733,6 +737,47 @@
         </div>
     </div>
 
+    <!-- 选教会 / 新建教会（2026-10-10）。设计见 06_产品决策记录/2026-10-08_教会单独建档.md
+         教会从 churches 表来，不再是每个人自己在 church_name 里手写一个名字。
+         谁能建：牧者 + 管理员。这里只控制按钮显不显示，**真正的拦截在数据库**
+         （create_church 里的 can_create_church），所以绕过界面也建不了。 -->
+    <div id="church-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1700] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="church-modal-box" class="modal-box bg-white w-full max-w-md rounded-3xl shadow-2xl px-9 py-8 scale-95 border border-slate-100">
+
+            <div id="church-picker-main">
+                <div class="flex justify-between items-start mb-5">
+                    <h2 class="text-xl font-black text-black">选择你的教会</h2>
+                    <button onclick="closeChurchPicker()" class="text-slate-400 hover:text-black font-black text-xl">✕</button>
+                </div>
+                <input id="church-search-input" oninput="onChurchSearchInput()" autocomplete="off" placeholder="搜教会名或地址"
+                       class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                <div id="church-list" class="mt-3 space-y-1 max-h-64 overflow-y-auto custom-scroll"></div>
+                <button id="church-new-btn" onclick="showChurchCreate()" class="hidden mt-5 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">＋ 新建教会</button>
+                <div id="church-no-pastor-hint" class="hidden text-[12px] text-slate-400 mt-5 leading-[1.8]">列表里没有你的教会？教会要由牧者来建。把你的邀请码给你的牧者，请他进来建一间。在这之前你照样可以读和听。</div>
+            </div>
+
+            <div id="church-create-form" class="hidden">
+                <div class="flex items-center gap-3 mb-5">
+                    <button onclick="backToChurchList()" class="text-[13px] font-bold text-slate-400 hover:text-black">‹</button>
+                    <h2 id="church-form-title" class="text-xl font-black text-black">新建教会</h2>
+                </div>
+                <div class="space-y-2">
+                    <input id="church-new-name" placeholder="教会名字" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                    <input id="church-new-address" placeholder="详细地址（要门牌号）" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all">
+                    <div class="grid grid-cols-3 gap-2">
+                        <input id="church-new-region" placeholder="区域" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                        <input id="church-new-state" placeholder="州" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                        <input id="church-new-country" placeholder="国家" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                    </div>
+                </div>
+                <div class="text-[12px] text-slate-400 mt-3 leading-[1.7]">教会地址**要门牌号**（以后「附近的教会」要用）。你自己住哪在「个人资料」里填，那个只要大概。</div>
+                <div id="church-similar" class="mt-4 space-y-2"></div>
+                <button id="church-save-btn" onclick="submitNewChurch(this)" class="mt-6 w-full text-[14px] font-black bg-black text-white py-4 rounded-full hover:bg-slate-800 transition-all">保存</button>
+            </div>
+
+        </div>
+    </div>
+
     <div id="detail-view" class="fixed inset-0 bg-white z-[800] hidden overflow-y-auto custom-scroll scroll-smooth transition-colors duration-300">
         <div class="sticky top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 transition-colors px-12 py-5">
             <div class="max-w-5xl mx-auto flex items-center justify-between">
@@ -829,6 +874,7 @@
             if (v === 'profile') {
                 const P = _myProfile || {};
                 document.getElementById('me-name').innerText    = P.real_name || P.nickname || '未填';
+                document.getElementById('me-church').innerText = P.church_name || '还没选';
                 document.getElementById('me-region').innerText  = P.region  || '未填';
                 document.getElementById('me-state').innerText   = P.state   || '未填';
                 document.getElementById('me-country').innerText = P.country || '未填';
@@ -1087,7 +1133,7 @@
                 //
                 // 教训：**删一列之前，先搜一遍还有谁在 select 它。**
                 // 这不是"改代码"和"改数据库"两件事，是同一件事的两半。
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, shepherd_id, region, state, country, is_report_reviewer')
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, shepherd_id, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -1565,8 +1611,203 @@
             loadProfileInfo();
         }
 
+
+        // ================= 教会（2026-10-10）=================
+        //
+        // 以前：每个人在 profiles.church_name 里自己手写一个教会名。
+        // 坑：同一间教会会写出好几种写法——09a 里把这个叫「教会名那个坑（已经踩过一次）」。
+        //
+        // 现在：教会是单独一张表 churches，每个人存 church_id。
+        // church_name 留着当影子，由数据库触发器跟着 churches.name 自动改——
+        // **大家手机上装着的 App 1.0 还在读那一列**，不能删。
+        //
+        // 谁能建教会：牧者 + 管理员。下面只决定按钮显不显示；
+        // 真正的拦截在数据库（create_church 里查 can_create_church），绕过界面也建不了。
+
+        function canCreateChurch() {
+            const P = _myProfile || {};
+            return !!P.is_admin || PASTOR_ROLES.includes(P.role);
+        }
+
+        let _churchSearchTimer = null;
+        let _churchList        = [];     // 当前列出来的那批，给「改」用
+        let _churchConfirmed   = false;  // 点过「都不是，继续新建」没有
+        let _churchEditId      = null;   // null = 新建；有值 = 改这一间
+
+        function openChurchPicker() {
+            if (!currentUserId()) { alert('登录之后才能选教会'); return; }
+            closeSettings();
+            backToChurchList();
+            document.getElementById('church-search-input').value = '';
+            document.getElementById('church-new-btn').classList.toggle('hidden', !canCreateChurch());
+            document.getElementById('church-no-pastor-hint').classList.toggle('hidden', canCreateChurch());
+            const m = document.getElementById('church-modal');
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0');
+                document.getElementById('church-modal-box').classList.remove('scale-95');
+                loadChurchList();
+            }, 10);
+        }
+
+        function closeChurchPicker() {
+            document.getElementById('church-modal').classList.add('opacity-0');
+            document.getElementById('church-modal-box').classList.add('scale-95');
+            setTimeout(() => document.getElementById('church-modal').classList.add('hidden'), 300);
+        }
+
+        function backToChurchList() {
+            document.getElementById('church-create-form').classList.add('hidden');
+            document.getElementById('church-picker-main').classList.remove('hidden');
+            document.getElementById('church-similar').innerHTML = '';
+            _churchConfirmed = false;
+            _churchEditId    = null;
+        }
+
+        // 边打边搜，停 250ms 再发，不然每敲一个字就一次请求
+        function onChurchSearchInput() {
+            clearTimeout(_churchSearchTimer);
+            _churchSearchTimer = setTimeout(loadChurchList, 250);
+        }
+
+        async function loadChurchList() {
+            const q   = document.getElementById('church-search-input').value.trim();
+            const box = document.getElementById('church-list');
+            const { data, error } = await _db.rpc('search_churches', { p_keyword: q });
+            if (error) {
+                box.innerHTML = '<div class="text-[13px] text-red-500 py-3 px-1">读不到教会列表：' + escapeHtml(error.message) + '</div>';
+                return;
+            }
+            _churchList = data || [];
+            if (!_churchList.length) {
+                box.innerHTML = '<div class="text-[13px] text-slate-400 italic py-4 px-1">没有找到。'
+                    + (canCreateChurch() ? '可以点下面「＋ 新建教会」。' : '请邀请你的牧者进来建。') + '</div>';
+                return;
+            }
+            const mine = (_myProfile || {}).church_id;
+            box.innerHTML = _churchList.map(c => {
+                const isMine  = c.id === mine;
+                // 「改」只给能建教会的人，而且只改自己这间（数据库那边也是这么卡的）
+                const canEdit = canCreateChurch() && isMine;
+                return '<div class="flex items-start justify-between gap-2 px-4 py-3 rounded-xl '
+                     + (isMine ? 'bg-black text-white' : 'hover:bg-slate-100 cursor-pointer')
+                     + '" ' + (isMine ? '' : 'onclick="pickChurch(\'' + c.id + '\')"') + '>'
+                     + '<div class="min-w-0">'
+                     +   '<div class="text-[14px] font-bold truncate">' + escapeHtml(c.name) + (isMine ? ' ✓' : '') + '</div>'
+                     +   '<div class="text-[11px] ' + (isMine ? 'text-white/60' : 'text-slate-400') + ' truncate">' + escapeHtml(c.address || '') + '</div>'
+                     + '</div>'
+                     + '<div class="flex items-center gap-2 shrink-0">'
+                     +   '<span class="text-[11px] ' + (isMine ? 'text-white/60' : 'text-slate-400') + '">' + (c['人数'] || 0) + ' 人</span>'
+                     +   (canEdit ? '<button onclick="event.stopPropagation(); editChurch(\'' + c.id + '\')" class="text-[11px] font-bold underline">改</button>' : '')
+                     + '</div></div>';
+            }).join('');
+        }
+
+        async function pickChurch(id) {
+            const { error } = await _db.rpc('set_my_church', { p_church_id: id });
+            if (error) { alert('选不上：' + error.message); return; }
+            closeChurchPicker();
+            await loadMyStatus();
+            loadProfileInfo();
+            if (typeof loadChurchTree === 'function') loadChurchTree();
+        }
+
+        function showChurchCreate() {
+            _churchEditId    = null;
+            _churchConfirmed = false;
+            document.getElementById('church-form-title').innerText = '新建教会';
+            document.getElementById('church-new-name').value    = document.getElementById('church-search-input').value.trim();
+            document.getElementById('church-new-address').value = '';
+            document.getElementById('church-new-region').value  = '';
+            document.getElementById('church-new-state').value   = '';
+            document.getElementById('church-new-country').value = '';
+            document.getElementById('church-similar').innerHTML = '';
+            document.getElementById('church-picker-main').classList.add('hidden');
+            document.getElementById('church-create-form').classList.remove('hidden');
+        }
+
+        function editChurch(id) {
+            const c = _churchList.find(x => x.id === id);
+            if (!c) return;
+            _churchEditId    = id;
+            _churchConfirmed = false;   // 改的时候不查重
+            document.getElementById('church-form-title').innerText = '教会资料';
+            document.getElementById('church-new-name').value    = c.name    || '';
+            // 地址是「（待补）」的话清空，让人直接填，不用先删掉那四个字
+            document.getElementById('church-new-address').value = (c.address === '（待补）') ? '' : (c.address || '');
+            document.getElementById('church-new-region').value  = c.region  || '';
+            document.getElementById('church-new-state').value   = c.state   || '';
+            document.getElementById('church-new-country').value = c.country || '';
+            document.getElementById('church-similar').innerHTML = '';
+            document.getElementById('church-picker-main').classList.add('hidden');
+            document.getElementById('church-create-form').classList.remove('hidden');
+        }
+
+        async function submitNewChurch(btn) {
+            const name    = document.getElementById('church-new-name').value.trim();
+            const address = document.getElementById('church-new-address').value.trim();
+            const region  = document.getElementById('church-new-region').value.trim();
+            const state   = document.getElementById('church-new-state').value.trim();
+            const country = document.getElementById('church-new-country').value.trim();
+            if (!name)    { alert('还没填教会名字'); return; }
+            if (!address) { alert('还没填详细地址（要门牌号）'); return; }
+
+            const orig = btn.innerText;
+            btn.disabled = true; btn.innerText = '保存中…';
+
+            let res;
+            if (_churchEditId) {
+                res = await _db.rpc('update_church', {
+                    p_church_id: _churchEditId, p_name: name, p_address: address,
+                    p_region: region || null, p_state: state || null, p_country: country || null
+                });
+            } else {
+                res = await _db.rpc('create_church', {
+                    p_name: name, p_address: address,
+                    p_region: region || null, p_state: state || null, p_country: country || null,
+                    p_confirmed: _churchConfirmed
+                });
+            }
+            btn.disabled = false; btn.innerText = orig;
+
+            if (res.error) { alert('保存失败：' + res.error.message); return; }
+
+            // 建之前查重：数据库发现有相近的，就先列出来问「是不是这间？」
+            // 这一步是故意放在数据库里的，App 和网页都绕不过去。
+            const d = res.data;
+            if (d && d.needs_confirm) {
+                const rows = (d.similar || []).map(c =>
+                    '<div class="flex items-start justify-between gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">'
+                  +   '<div class="min-w-0">'
+                  +     '<div class="text-[13px] font-bold text-black truncate">' + escapeHtml(c.name) + '</div>'
+                  +     '<div class="text-[11px] text-slate-500 truncate">' + escapeHtml(c.address || '') + '</div>'
+                  +     '<div class="text-[10px] text-amber-700 mt-0.5">' + escapeHtml(c['为什么像'] || '') + '</div>'
+                  +   '</div>'
+                  +   '<button onclick="pickChurch(\'' + c.id + '\')" class="shrink-0 text-[11px] font-black bg-black text-white px-3 py-2 rounded-full">是这间</button>'
+                  + '</div>').join('');
+                document.getElementById('church-similar').innerHTML =
+                    '<div class="text-[12px] font-bold text-amber-700 leading-[1.7]">⚠️ 已经有名字或地址相近的教会。先确认不是同一间，免得建出两个一样的。</div>'
+                  + rows
+                  + '<button onclick="forceCreateChurch(this)" class="w-full text-[12px] font-bold text-slate-500 hover:text-black py-2">都不是，继续新建</button>';
+                return;
+            }
+
+            closeChurchPicker();
+            await loadMyStatus();
+            loadProfileInfo();
+            if (typeof loadChurchTree === 'function') loadChurchTree();
+        }
+
+        function forceCreateChurch(btn) {
+            _churchConfirmed = true;
+            submitNewChurch(btn);
+        }
+
         // 教会 / 区域 / 州 / 国家是自己填的，存数据库（原来存 localStorage，换设备就没了）。
         // ⚠️ 身份不在这里——那个只能由邀请人在确认时填。
+        // ⚠️ church 这一项 2026-10-10 起**没人调了**——教会改成从列表选（openChurchPicker），
+        //    不再手填。留着只是因为 set_my_profile_info 的参数里还有 p_church。
+        //    别再给它加入口，否则手写的教会名又会和 churches 表对不上。
         const FIELD_LABEL = { church: '教会名', region: '区域', state: '州', country: '国家' };
         const FIELD_COL   = { church: 'church_name', region: 'region', state: 'state', country: 'country' };
         let _editingField = null;
@@ -2980,7 +3221,7 @@
             const no = parseInt(document.getElementById('new-group-no').value, 10);
             if (!lang) { alert('写一个语言名'); return; }
             if (!no || no < 1) { alert('组号要是个正整数'); return; }
-            if (!myChurch()) { alert('先在上面填好你的教会名，分组是按教会分的'); return; }
+            if (!myChurch()) { alert('先在「我 → 个人资料 → 教会」里选好你的教会，分组是按教会分的'); return; }
 
             // 同一种语言沿用已有的排序号，新语言排到最后。
             // 顺序让教会自己形成，代码不替他们排——中文/English/한국어 按字符排会乱。
