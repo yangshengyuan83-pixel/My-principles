@@ -217,11 +217,9 @@
                     <div class="flex items-center gap-3 mb-5"><button onclick="showMeView('main')" class="text-[13px] font-bold text-slate-400 hover:text-black">‹</button><h3 class="text-[15px] font-black text-black">个人资料</h3></div>
                     <div class="space-y-2">
                         <button onclick="closeSettings(); editMyName()" class="w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>名字</span><span id="me-name" class="text-[12px] font-normal text-slate-400"></span></button>
-                        <!-- 我的职分。**只对「自己从网上进来、教会里还没有牧者」的人显示**
-                             （Yuan 2026-10-10：第一个人选了身份就有权限，选错了随时能改回去）。
-                             被邀请进来的人不显示——他们的职分由牧者确认，不能自己改。
-                             真正的条件在数据库 set_my_own_role 里卡，这里只决定显不显示。 -->
-                        <button id="me-role-row" onclick="openMyRolePicker()" class="hidden w-full flex items-center justify-between text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-black transition-colors"><span>我的职分</span><span id="me-role" class="text-[12px] font-normal text-slate-400"></span></button>
+                        <!-- 「我的职分」那一行 2026-10-10 拿掉了（Yuan：「不用放到个人资料里，麻烦」）。
+                             改成在左边人员树上，**点自己名字前面那两个字**就能改。
+                             东西放在它出现的地方，比放进一个要翻三层的设置页里好。 -->
                         <!-- 教会那一行 2026-10-10 挪走了：现在在左栏，跟人员树在一起
                              （Yuan：「不要分开放，有点乱」）。这里不再重复放一个入口——
                              同一件事摆两处，改了一个另一个不会跟着变（这个教训 09-26 记过）。 -->
@@ -280,10 +278,7 @@
                             一直容易被当成教会在哪（2026-09-26 的注释里已经写了「以后要拆开」）。
                             现在拆了：教会地址在这里，个人住址留在「我 → 个人资料」那一处。 -->
                     <div onclick="openChurchPicker()" class="mb-4 -mx-2 px-2 py-2 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
-                        <div class="flex items-baseline justify-between gap-2">
-                            <h3 id="church-name-label" class="text-[13px] font-black text-black truncate">教会</h3>
-                            <span class="text-[10px] font-bold text-slate-300 shrink-0">换 ›</span>
-                        </div>
+                        <h3 id="church-name-label" class="text-[13px] font-black text-black truncate">教会</h3>
                         <div id="church-address-label" class="text-[11px] text-slate-400 leading-[1.6] mt-0.5"></div>
                     </div>
 
@@ -304,19 +299,17 @@
 
                     <div id="group-editor" class="hidden mt-5 pt-4 border-t border-slate-100">
                         <div id="group-list" class="space-y-1 mb-3"></div>
-                        <!-- 2026-10-10 改成树形：组名自己起 + 可以选一个上级组。
-                             原来是写死的「语言 + 1~4 组」两段结构，别的教会不一定这么分。
-                             Yuan：「像别的聊天软件建立群组一样，需要就建语言组，再需要就建下级 1234 组」。
-                             数据上不限层数，界面只做两层。 -->
-                        <select id="new-group-parent" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all mb-1.5">
-                            <option value="">建一个顶层组</option>
-                        </select>
+                        <!-- 2026-10-10 第二轮简化（Yuan：「不用下面这些复杂的『建立一个顶层组』，
+                             感觉好复杂，别的软件没有这样吧」）。
+                             原来这里有个「上级组」下拉——先在下拉里选父组、再打名字，
+                             确实别扭：别的软件都是**在那个组上点一下加**，不是先选再建。
+                             现在：下面这个框只建最外层的组；要加下级组，就在上面那个组自己那一行点「＋」。 -->
                         <div class="flex gap-1.5">
-                            <input id="new-group-name" placeholder="组名（中文 / 青年 / 1 组 …）" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all">
+                            <input id="new-group-name" placeholder="新建一个组（中文 / 青年 …）" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all">
                             <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-3 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
                         </div>
                         <div class="text-[11px] text-slate-400 mt-2 leading-[1.7]">
-                            名字自己起，分不分层都行。<span class="font-bold text-slate-500">删组不动任何人的档案。</span>
+                            要加下级组，在上面那个组后面点「＋」。<span class="font-bold text-slate-500">删组不动任何人的档案。</span>
                         </div>
                     </div>
                 </div>
@@ -800,8 +793,12 @@
                     <div class="grid grid-cols-3 gap-2">
                         <input id="church-new-region" list="dl-region" placeholder="区域" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
                         <input id="church-new-state" list="dl-state" placeholder="州" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
-                        <input id="church-new-country" list="dl-country" placeholder="国家" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
+                        <!-- 邮编（Yuan 2026-10-10：「3171 这个在澳洲很重要的」）。
+                             澳洲地址的标准写法是 1 Regal Dr, Springvale VIC 3171，
+                             邮编不是装饰，是找到那个地方的关键一段，以后「附近的教会」也要用。 -->
+                        <input id="church-new-postcode" placeholder="邮编" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all">
                     </div>
+                    <input id="church-new-country" list="dl-country" placeholder="国家" autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] outline-none focus:border-black transition-all mt-2">
                     <datalist id="dl-region"></datalist>
                     <datalist id="dl-state"></datalist>
                     <datalist id="dl-country">
@@ -916,18 +913,6 @@
             if (v === 'profile') {
                 const P = _myProfile || {};
                 document.getElementById('me-name').innerText    = P.real_name || P.nickname || '未填';
-                // 「我的职分」只给「自己从网上进来、教会里还没有牧者」的人看。
-                // 被邀请进来的人不显示——他们的职分由牧者确认，自己改不了（数据库也会拒）。
-                // 教会里有没有别的牧者，这里判断不了（人员还没加载），所以只按
-                // 「没有邀请人 + 已经有教会」来显示；真条件由 set_my_own_role 卡，
-                // 不满足时它会把原因说清楚。
-                const roleRow = document.getElementById('me-role-row');
-                if (roleRow) {
-                    const 可以自己定 = !P.inviter_id && !!P.church_id;
-                    roleRow.classList.toggle('hidden', !可以自己定);
-                    const lab = document.getElementById('me-role');
-                    if (lab) lab.innerText = (!P.role || P.role === 'none') ? '还没选' : P.role;
-                }
                 document.getElementById('me-region').innerText  = P.region  || '未填';
                 document.getElementById('me-state').innerText   = P.state   || '未填';
                 document.getElementById('me-country').innerText = P.country || '未填';
@@ -1669,10 +1654,8 @@
                 if (!C) {
                     addrEl.innerText = '点这里选你的教会';
                 } else {
-                    // 地址还是「（待补）」就不显示那四个字，直接提示去填
-                    const parts = [C.address, C.region, C.state, C.country]
-                        .filter(x => x && x !== '（待补）');
-                    addrEl.innerText = parts.length ? parts.join(' · ') : '地址还没填，点这里补上';
+                    const a = formatChurchAddress(C);
+                    addrEl.innerText = a || '地址还没填，点这里补上';
                 }
             }
         }
@@ -1848,7 +1831,7 @@
                      + '" ' + (isMine ? '' : 'onclick="pickChurch(\'' + c.id + '\')"') + '>'
                      + '<div class="min-w-0">'
                      +   '<div class="text-[14px] font-bold truncate">' + escapeHtml(c.name) + (isMine ? ' ✓' : '') + '</div>'
-                     +   '<div class="text-[11px] ' + (isMine ? 'text-white/60' : 'text-slate-400') + ' truncate">' + escapeHtml(c.address || '') + '</div>'
+                     +   '<div class="text-[11px] ' + (isMine ? 'text-white/60' : 'text-slate-400') + ' truncate">' + escapeHtml(formatChurchAddress(c)) + '</div>'
                      + '</div>'
                      + '<div class="flex items-center gap-2 shrink-0">'
                      +   '<span class="text-[11px] ' + (isMine ? 'text-white/60' : 'text-slate-400') + '">' + (c['人数'] || 0) + ' 人</span>'
@@ -1885,6 +1868,7 @@
             document.getElementById('church-new-region').value  = '';
             document.getElementById('church-new-state').value   = '';
             document.getElementById('church-new-country').value = '';
+            document.getElementById('church-new-postcode').value = '';
             document.getElementById('church-similar').innerHTML = '';
             document.getElementById('church-picker-main').classList.add('hidden');
             document.getElementById('church-create-form').classList.remove('hidden');
@@ -1941,7 +1925,8 @@
             document.getElementById('church-new-address').value = (c.address === '（待补）') ? '' : (c.address || '');
             document.getElementById('church-new-region').value  = c.region  || '';
             document.getElementById('church-new-state').value   = c.state   || '';
-            document.getElementById('church-new-country').value = c.country || '';
+            document.getElementById('church-new-country').value  = c.country  || '';
+            document.getElementById('church-new-postcode').value = c.postcode || '';
             document.getElementById('church-similar').innerHTML = '';
             document.getElementById('church-picker-main').classList.add('hidden');
             document.getElementById('church-create-form').classList.remove('hidden');
@@ -1953,14 +1938,15 @@
             const address = document.getElementById('church-new-address').value.trim();
             const region  = document.getElementById('church-new-region').value.trim();
             const state   = document.getElementById('church-new-state').value.trim();
-            const country = document.getElementById('church-new-country').value.trim();
+            const country  = document.getElementById('church-new-country').value.trim();
+            const postcode = document.getElementById('church-new-postcode').value.trim();
             if (!name)    { alert('还没填教会名字'); return; }
             if (!address) { alert('还没填详细地址（要门牌号）'); return; }
 
             // 建新教会时，最后给一次完整预览（Yuan 2026-10-10：「需要它再三确认，不要出错」）。
             // 改已有教会不弹——那是随手修个错字，每次都拦一下会烦。
             if (!_churchEditId) {
-                const 地 = [address, region, state, country].filter(Boolean).join('，');
+                const 地 = formatChurchAddress({ address, region, state, country, postcode });
                 if (!confirm('确认无误？建好之后别人就会在列表里看到它。\n\n教会名：' + name + '\n地址：' + 地)) return;
             }
 
@@ -1971,13 +1957,14 @@
             if (_churchEditId) {
                 res = await _db.rpc('update_church', {
                     p_church_id: _churchEditId, p_name: name, p_address: address,
-                    p_region: region || null, p_state: state || null, p_country: country || null
+                    p_region: region || null, p_state: state || null, p_country: country || null,
+                    p_postcode: postcode || null
                 });
             } else {
                 res = await _db.rpc('create_church', {
                     p_name: name, p_address: address,
                     p_region: region || null, p_state: state || null, p_country: country || null,
-                    p_confirmed: _churchConfirmed
+                    p_postcode: postcode || null, p_confirmed: _churchConfirmed
                 });
             }
             btn.disabled = false; btn.innerText = orig;
@@ -1992,7 +1979,7 @@
                     '<div class="flex items-start justify-between gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">'
                   +   '<div class="min-w-0">'
                   +     '<div class="text-[13px] font-bold text-black truncate">' + escapeHtml(c.name) + '</div>'
-                  +     '<div class="text-[11px] text-slate-500 truncate">' + escapeHtml(c.address || '') + '</div>'
+                  +     '<div class="text-[11px] text-slate-500 truncate">' + escapeHtml(formatChurchAddress(c)) + '</div>'
                   +     '<div class="text-[10px] text-amber-700 mt-0.5">' + escapeHtml(c['为什么像'] || '') + '</div>'
                   +   '</div>'
                   +   '<button onclick="pickChurch(\'' + c.id + '\')" class="shrink-0 text-[11px] font-black bg-black text-white px-3 py-2 rounded-full">是这间</button>'
@@ -3246,11 +3233,39 @@
 
         // 名字前面带上职分。'none' 和空的不显示——
         // 写「none 元」比不写还糟，那是把数据库的内部值直接怼到人脸上。
+        // 自己名字前面的职分做成可以点的（Yuan 2026-10-10：
+        // 「点击这里的『牧者』就可出现预选框，不用放到个人资料里，麻烦」）。
+        // 只有自己、而且是「自己从网上进来的人」（没有邀请人）才可点——
+        // 被邀请进来的人职分由牧者确认，自己改不了，数据库也会拒。
+        // 还没选职分的显示「选职分」，否则一个没有职分的人名字前面什么都没有，没地方点。
+        function memberLabelHtml(m) {
+            const P = _myProfile || {};
+            const 是我 = m && m.id === currentUserId();
+            const 能自己改 = 是我 && !P.inviter_id && !!P.church_id;
+            if (!能自己改) return escapeHtml(memberLabel(m));
+            const r = (!m.role || m.role === 'none') ? '选职分' : m.role;
+            return '<span onclick="event.stopPropagation(); openMyRolePicker()" '
+                 + 'class="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-black">'
+                 + escapeHtml(r) + '</span> ' + escapeHtml(memberName(m))
+                 + (m.is_admin ? '（管理员）' : '');
+        }
+
         function memberLabel(m) {
             const r = m && m.role;
             const shown = (!r || r === 'none') ? '' : r + ' ';
             // 2026-10-09 Yuan：管理员要有一个大家都看得到的标记
             return shown + memberName(m) + (m && m.is_admin ? '（管理员）' : '');
+        }
+
+        // 地址按澳洲的标准写法拼：「1 Regal Dr, Springvale VIC 3171, Australia」。
+        // 原来是用 ' · ' 把几段串起来，看着像标签不像地址，而且**漏了邮编**
+        // （Yuan 2026-10-10：「3171 这个在澳洲很重要的」）。
+        // 「（待补）」是建档时的占位，不显示它。
+        function formatChurchAddress(c) {
+            if (!c) return '';
+            const street = (c.address && c.address !== '（待补）') ? c.address : '';
+            const 第二段 = [c.region, c.state, c.postcode].filter(Boolean).join(' ');
+            return [street, 第二段, c.country].filter(Boolean).join(', ');
         }
 
         function myChurch()   { return (_myProfile && _myProfile.church_name) || ''; }
@@ -3360,15 +3375,105 @@
             renderChurchTree();
         }
 
-        function treeRow(indent, key, label, count, openable, cls) {
+        // labelHtml：少数几处要在标签里塞一个可点的东西（比如自己名字前的职分），
+        // 其余一律走 label 走转义，不要图省事全改成 HTML。
+        function treeRow(indent, key, label, count, openable, cls, labelHtml) {
             const open = _treeOpen.has(key);
             return `<div onclick="${openable ? `toggleTreeNode('${key}')` : ''}"
                 class="flex items-center gap-1.5 py-1 rounded ${openable ? 'cursor-pointer hover:bg-slate-50' : ''} ${cls || ''}"
                 style="padding-left:${indent * 14}px">
                 <span class="w-3 text-[9px] text-slate-300">${openable ? (open ? '▾' : '▸') : ''}</span>
-                <span class="truncate">${escapeHtml(label)}</span>
+                <span class="truncate">${labelHtml || escapeHtml(label)}</span>
                 ${count !== null ? `<span class="text-slate-300 ml-auto pl-2 flex-shrink-0">${count}</span>` : ''}
             </div>`;
+        }
+
+        // 在人员树上直接安排人（Yuan 2026-10-10：
+        // 「点击这个组还没有人，就可以添加下级组，或是添加人，
+        //   就从上面还没有安排家庭牧场里选择」）。
+        //
+        // ⚠️ 组和家庭牧场装的不是同一种东西，所以是两个动作：
+        //    · **组**里编的是**牧者**        → set_pastor_group
+        //    · **家庭牧场**里放的是**成员**  → set_member_shepherd
+        //    混成一个按钮会让人以为"把谁拖进哪里都行"，然后数据就乱了。
+        function 能安排() {
+            return isPastorMe() || (_myProfile && _myProfile.is_admin);
+        }
+
+        function shepherdPickerHtml(m) {
+            if (!能安排()) return '';
+            return ' <span onclick="event.stopPropagation(); pickShepherdFor(\'' + m.id + '\')" '
+                 + 'class="text-[10px] font-bold text-slate-300 hover:text-black cursor-pointer">→ 放进牧场</span>';
+        }
+
+        function groupPickerHtml(p) {
+            if (!能安排()) return '';
+            return ' <span onclick="event.stopPropagation(); pickGroupFor(\'' + p.id + '\')" '
+                 + 'class="text-[10px] font-bold text-slate-300 hover:text-black cursor-pointer">→ 编进组</span>';
+        }
+
+        async function pickShepherdFor(userId) {
+            const 牧者们 = _members.filter(x => PASTOR_ROLES.includes(x.role));
+            if (!牧者们.length) { alert('教会里还没有牧者。先给一位弟兄姊妹牧者的职分。'); return; }
+            const who = _members.find(x => x.id === userId);
+            const ans = prompt('把「' + memberName(who) + '」放进谁的家庭牧场？\n\n'
+                + 牧者们.map((x, i) => (i + 1) + '. ' + memberName(x)).join('\n')
+                + '\n\n输入编号。留空取消。');
+            if (!ans) return;
+            const pick = 牧者们[parseInt(String(ans).trim(), 10) - 1];
+            if (!pick) { alert('没有这个编号'); return; }
+            const { error } = await _db.rpc('set_member_shepherd', { p_user_id: userId, p_shepherd_id: pick.id });
+            if (error) { showError('安排不了', error); return; }
+            loadChurchTree();
+        }
+
+        async function pickGroupFor(pastorId, 预选组) {
+            if (!_groups.length) { alert('还没有分组。先在「编辑分组」里建一个。'); return; }
+            if (预选组) {
+                const { error } = await _db.rpc('set_pastor_group', { p_user_id: pastorId, p_group_id: 预选组 });
+                if (error) { showError('编不进去', error); return; }
+                loadChurchTree(); return;
+            }
+            const who = _members.find(x => x.id === pastorId);
+            const ans = prompt('把「' + memberName(who) + '」编进哪个组？\n\n'
+                + _groups.map((g, i) => (i + 1) + '. ' + (g.name || '（没名字）')).join('\n')
+                + '\n\n输入编号。留空取消。');
+            if (!ans) return;
+            const pick = _groups[parseInt(String(ans).trim(), 10) - 1];
+            if (!pick) { alert('没有这个编号'); return; }
+            const { error } = await _db.rpc('set_pastor_group', { p_user_id: pastorId, p_group_id: pick.id });
+            if (error) { showError('编不进去', error); return; }
+            loadChurchTree();
+        }
+
+        // 空组上那一行：直接给两个动作，不用再翻到下面的「编辑分组」
+        async function emptyGroupActions(groupId) {
+            if (!能安排()) return;
+            const 没编组的牧者 = _members.filter(m => PASTOR_ROLES.includes(m.role) && !m.group_id);
+            const ans = prompt('这个组还没有人。要做什么？\n\n1. 建一个下级组\n'
+                + '2. 把一位牧者编进来' + (没编组的牧者.length ? '（有 ' + 没编组的牧者.length + ' 位还没编组）' : '（现在没有待编组的牧者）')
+                + '\n\n输入 1 或 2。留空取消。');
+            if (!ans) return;
+            const v = String(ans).trim();
+            if (v === '1') {
+                const name = prompt('下级组叫什么名字？');
+                if (!name || !name.trim()) return;
+                const { error } = await _db.rpc('create_group', { p_name: name.trim(), p_parent_id: groupId });
+                if (error) { showError('建不了', error); return; }
+                _treeOpen.add('G' + groupId);
+                loadChurchTree();
+                return;
+            }
+            if (v === '2') {
+                if (!没编组的牧者.length) { alert('现在没有待编组的牧者。'); return; }
+                const pick = prompt('把谁编进来？\n\n'
+                    + 没编组的牧者.map((x, i) => (i + 1) + '. ' + memberName(x)).join('\n')
+                    + '\n\n输入编号。');
+                if (!pick) return;
+                const p = 没编组的牧者[parseInt(String(pick).trim(), 10) - 1];
+                if (!p) { alert('没有这个编号'); return; }
+                await pickGroupFor(p.id, groupId);
+            }
         }
 
         function renderChurchTree() {
@@ -3398,15 +3503,16 @@
                 html += treeRow(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
                     'font-black text-amber-600');
                 if (_treeOpen.has('ORPH')) orphans.forEach(m =>
-                    html += treeRow(1, 'M' + m.id,
-                        memberLabel(m) + (m.status !== 'active' ? '（待确认）' : ''),
-                        null, false, 'text-slate-400'));
+                    html += treeRow(1, 'M' + m.id, '', null, false, 'text-slate-400',
+                        memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : '')
+                        + shepherdPickerHtml(m)));
             }
             if (noGroup.length) {
                 html += treeRow(0, 'NG', '牧者还没编进组', noGroup.length, true,
                     'font-black text-amber-600');
                 if (_treeOpen.has('NG')) noGroup.forEach(p =>
-                    html += treeRow(1, 'M' + p.id, memberLabel(p), null, false, 'text-slate-400'));
+                    html += treeRow(1, 'M' + p.id, '', null, false, 'text-slate-400',
+                        memberLabelHtml(p) + groupPickerHtml(p)));
             }
             if (html) html += '<div class="h-2"></div>';
 
@@ -3434,9 +3540,8 @@
                     out += '<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:'
                          + ((indent + 1) * 14 + 14) + 'px">还没有成员</div>';
                 }
-                flock.forEach(m => out += treeRow(indent + 1, 'M' + m.id,
-                    memberLabel(m) + (m.status !== 'active' ? '（待确认）' : ''),
-                    null, false, 'text-slate-400'));
+                flock.forEach(m => out += treeRow(indent + 1, 'M' + m.id, '', null, false, 'text-slate-400',
+                    memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : '')));
                 return out;
             }
 
@@ -3450,8 +3555,11 @@
                 if (!_treeOpen.has(gKey)) return out;
 
                 if (!kids.length && !here.length) {
-                    out += '<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:'
-                         + ((indent + 1) * 14 + 14) + 'px">这个组还没有人</div>';
+                    const 可点 = 能安排();
+                    out += '<div ' + (可点 ? 'onclick="event.stopPropagation(); emptyGroupActions(\'' + g.id + '\')" ' : '')
+                         + 'class="py-1 text-[11px] italic ' + (可点 ? 'text-slate-400 cursor-pointer hover:text-black underline decoration-dotted underline-offset-2' : 'text-slate-300')
+                         + '" style="padding-left:' + ((indent + 1) * 14 + 14) + 'px">'
+                         + (可点 ? '这个组还没有人 · 点这里加' : '这个组还没有人') + '</div>';
                 }
                 kids.forEach(c => out += renderGroup(c, indent + 1));
                 here.forEach(p => out += renderFlock(p, indent + 1));
@@ -3471,7 +3579,6 @@
 
         function renderGroupEditor() {
             const box = document.getElementById('group-list');
-            const sel = document.getElementById('new-group-parent');
             if (!box) return;
 
             const childrenOf = pid => _groups.filter(g => (g.parent_id || null) === pid);
@@ -3483,36 +3590,43 @@
                 childrenOf(g.id).forEach(c => rows += groupRow(c, 1));
             });
             box.innerHTML = rows || '<div class="text-[11px] text-slate-300 italic">还没有分组</div>';
-
-            // 「上级组」下拉：只列顶层组。界面只做两层（Yuan 同意），
-            // 所以不让人把子组再当上级选下去。
-            if (sel) {
-                sel.innerHTML = '<option value="">建一个顶层组</option>'
-                    + childrenOf(null).map(g =>
-                        '<option value="' + g.id + '">放进「' + escapeHtml(g.name || '') + '」里</option>').join('');
-            }
         }
 
+        // indent 0 = 顶层组，后面有「＋」可以在它下面加一个子组。
+        // 界面只做两层（Yuan 同意），所以子组那一行没有「＋」。
         function groupRow(g, indent) {
             return '<div class="flex items-center gap-2 text-[12px] text-slate-600" style="padding-left:'
                  + (indent * 12) + 'px">'
                  + '<span class="truncate">' + (indent ? '· ' : '') + escapeHtml(g.name || '（没名字）') + '</span>'
-                 + '<button onclick="renameGroup(\'' + g.id + '\')" class="ml-auto text-[11px] text-slate-300 hover:text-black transition-colors flex-shrink-0">改名</button>'
-                 + '<button onclick="deleteGroup(\'' + g.id + '\')" class="text-[11px] text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">✕</button>'
-                 + '</div>';
+                 + '<span class="ml-auto flex items-center gap-2 flex-shrink-0">'
+                 + (indent === 0
+                    ? '<button onclick="addSubGroup(\'' + g.id + '\')" title="在它下面加一个组" class="text-[13px] leading-none text-slate-300 hover:text-black transition-colors">＋</button>'
+                    : '')
+                 + '<button onclick="renameGroup(\'' + g.id + '\')" class="text-[11px] text-slate-300 hover:text-black transition-colors">改名</button>'
+                 + '<button onclick="deleteGroup(\'' + g.id + '\')" class="text-[11px] text-slate-300 hover:text-red-500 transition-colors">✕</button>'
+                 + '</span></div>';
+        }
+
+        async function addSubGroup(parentId) {
+            const name = prompt('在它下面加一个组，叫什么名字？');
+            if (!name || !name.trim()) return;
+            const { error } = await _db.rpc('create_group', { p_name: name.trim(), p_parent_id: parentId });
+            if (error) { showError('加不上', error); return; }
+            _treeOpen.add('G' + parentId);
+            loadChurchTree();
         }
 
         // 建组、改名、删组都走数据库函数（create_group / rename_group / delete_group）。
         // 以前是直接 insert/delete 表，权限只靠 RLS；改成函数之后，
         // 「上级组必须是同一间教会的」「同一层不许重名」这些规矩在数据库里就卡住了。
         async function addGroup(btn) {
-            const name   = document.getElementById('new-group-name').value.trim();
-            const parent = document.getElementById('new-group-parent').value || null;
+            const name = document.getElementById('new-group-name').value.trim();
             if (!name) { alert('写一个组名'); return; }
             if (!myChurchId()) { alert('先在左边选好你的教会，分组是按教会分的'); return; }
 
             btn.disabled = true;
-            const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: parent });
+            // 这个框只建最外层的组。下级组在组自己那一行点「＋」。
+            const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: null });
             btn.disabled = false;
             if (error) { showError('加不上', error); return; }
             document.getElementById('new-group-name').value = '';
