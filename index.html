@@ -3420,7 +3420,26 @@
 
         let _pp = { 候选: [], 选中: new Set(), 原本: new Set(), 提交: null };
 
+        // 菜单模式：同一个面板，藏掉搜索框和「完成」，列几行动作。
+        // 组名右边那个「…」用的就是它。
+        // 为什么不另做一个弹窗：一个教会管理界面已经有够多窗口了，
+        // 同一个壳子换内容，人看到的位置、动画、关法都一样，少学一样东西。
+        function openActionSheet(标题, 项目) {
+            openPeoplePicker({ 标题: 标题, 候选: [], 空话: '', 提交: null });
+            document.getElementById('people-picker-search').parentElement.classList.add('hidden');
+            document.getElementById('people-picker-done').classList.add('hidden');
+            document.getElementById('people-picker-empty').classList.add('hidden');
+            document.getElementById('people-picker-list').innerHTML = 项目.map(it =>
+                '<div onclick="closePeoplePicker(); setTimeout(function(){ ' + it.动作 + ' }, 320);" '
+              + 'class="flex items-center px-3 py-3.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
+              + '<span class="text-[15px] font-bold ' + (it.危险 ? 'text-red-500' : 'text-black') + '">'
+              + escapeHtml(it.文字) + '</span></div>').join('');
+        }
+
         function openPeoplePicker({ 标题, 候选, 已选, 空话, 提交 }) {
+            // 菜单模式用完要把搜索框和「完成」放回来，否则下次开勾人面板是残的
+            document.getElementById('people-picker-search').parentElement.classList.remove('hidden');
+            document.getElementById('people-picker-done').classList.remove('hidden');
             _pp = { 候选: 候选 || [], 选中: new Set(已选 || []), 原本: new Set(已选 || []), 提交: 提交 };
             document.getElementById('people-picker-title').innerText = 标题 || '选人';
             document.getElementById('people-picker-search').value = '';
@@ -3568,19 +3587,6 @@
                     memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : ''));
             }
 
-            // 每个组底下固定一行两个动作。**不管有没有人都在**（Yuan 2026-10-12）。
-            // 这一行取代了原来组名后面那个「＋」——少一个符号，动作就在它作用的地方。
-            function 动作行(gid, indent) {
-                if (!能安排()) return '';
-                return '<div class="py-1 text-[11px]" style="padding-left:' + (indent * 14 + 14) + 'px">'
-                     + '<span onclick="event.stopPropagation(); openGroupMemberPicker(\'' + gid + '\')" '
-                     +   'class="text-slate-300 hover:text-black cursor-pointer">添加人员</span>'
-                     + '<span class="text-slate-200 mx-1.5">·</span>'
-                     + '<span onclick="event.stopPropagation(); startNewGroup(\'' + gid + '\')" '
-                     +   'class="text-slate-300 hover:text-black cursor-pointer">加一个下级组</span>'
-                     + '</div>';
-            }
-
             function renderGroup(g, indent) {
                 let out = '';
                 const gKey = 'G' + g.id;
@@ -3588,11 +3594,15 @@
                     indent === 0 ? 'font-black text-slate-600' : 'text-slate-500',
                     escapeHtml(g.name || '（没名字的组）') + groupRowActions(g));
                 // 正在这个组下面建新组 → 当场长出输入框
-                if (_newGroupUnder === g.id) out += inlineGroupInputHtml(indent + 1);
+                if (_newGroupUnder === g.id) out += inlineGroupInputHtml(indent + 1, g.id);
                 if (!_treeOpen.has(gKey)) return out;
                 childrenOf(g.id).forEach(c => out += renderGroup(c, indent + 1));
                 peopleIn(g.id).forEach(m => out += 人行(m, indent + 1));
-                out += 动作行(g.id, indent + 1);
+                // 空组给一句话，不然展开是一片空白，人会以为坏了
+                if (!childrenOf(g.id).length && !peopleIn(g.id).length) {
+                    out += '<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:'
+                         + ((indent + 1) * 14 + 14) + 'px">还没有人，点右边的「…」添加</div>';
+                }
                 return out;
             }
 
@@ -3613,7 +3623,7 @@
             if (html) html += '<div class="h-2"></div>';
 
             childrenOf(null).forEach(g => html += renderGroup(g, 0));
-            if (_newGroupUnder === null) html += inlineGroupInputHtml(0);
+            if (_newGroupUnder === null) html += inlineGroupInputHtml(0, null);
 
             // ⚠️ 这句不能放在函数最前面做「没人就 return」的早退——
             //    早退会把正在输入的新建组输入框一起挡掉，于是点「＋」什么反应都没有。
@@ -3662,7 +3672,8 @@
             const name = (el && el.value || '').trim();
             if (el) el.value = '';            // 防止失焦那一次又读到同样的字
             _groupCommitting = true;
-            const parent = _newGroupUnder;
+            // parent 以输入框身上记的为准，全局变量只当后备
+            const parent = (el && el.dataset && el.dataset.parent) || _newGroupUnder || null;
             _newGroupUnder = undefined;
             try {
 
@@ -3674,10 +3685,15 @@
             } finally { _groupCommitting = false; }
         }
 
-        function inlineGroupInputHtml(indent) {
+        // ⚠️ 「建在哪个组下面」写在**输入框自己身上**（data-parent），不是只记在全局变量里。
+        //    2026-10-12：出现过一个建到顶层去的组，时间上像是本该建在子组下。
+        //    全局变量会被中途的重新渲染或别的动作重置，而一旦重置，
+        //    提交时 parent 就成了 null → **建到顶层**。写在元素上就不会跑。
+        function inlineGroupInputHtml(indent, parentId) {
             return '<div class="flex items-center gap-1.5 py-1" style="padding-left:' + (indent * 14) + 'px">'
                  + '<span class="w-3"></span>'
-                 + '<input id="inline-group-input" placeholder="组名，回车确认" autocomplete="off" '
+                 + '<input id="inline-group-input" data-parent="' + (parentId || '') + '" '
+                 + 'placeholder="组名，回车确认" autocomplete="off" '
                  + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();commitNewGroup(this);} '
                  + 'if(event.key===\'Escape\'){cancelNewGroup();}" '
                  + 'onblur="commitNewGroup(this)" '
@@ -3693,13 +3709,25 @@
         //    干净不该靠"藏起来"换，靠轻。
         function groupRowActions(g) {
             if (!能安排()) return '';
-            // 2026-10-12：这里原来还有一个「＋」，去掉了（Yuan：「去掉＋，看起来更简单」）。
-            // 建下级组和加人都挪到组底下那一行「添加人员 · 加一个下级组」——
-            // 少一个符号，而且动作就在它作用的地方。
-            return '<span class="ml-1 inline-flex items-center gap-1.5 align-middle">'
-                 + '<span onclick="event.stopPropagation(); renameGroup(\'' + g.id + '\')" class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">改名</span>'
-                 + '<span onclick="event.stopPropagation(); deleteGroup(\'' + g.id + '\')" class="text-[10px] font-bold text-slate-200 hover:text-red-500 cursor-pointer">删</span>'
-                 + '</span>';
+            // 2026-10-12 第三轮：一行只留**一个「…」**（Yuan 选的）。
+            // 之前是「＋ 改名 删」三个符号挤在组名后面，再加一行
+            // 「添加人员 · 加一个下级组」挂在子项下面——那一行因为排在最后，
+            // 看起来像是属于上面最后那个人，三层嵌套时三行叠在一起，分不清谁是谁的。
+            // 现在四个动作全收进「…」里，一行一个符号。
+            return ' <span onclick="event.stopPropagation(); openGroupMenu(\'' + g.id + '\')" '
+                 + 'class="px-1 text-[13px] leading-none font-black text-slate-200 hover:text-black cursor-pointer align-middle">…</span>';
+        }
+
+        // 组名右边那个「…」。四个动作收在一起，一行只剩一个符号。
+        function openGroupMenu(id) {
+            const g = _groups.find(x => x.id === id);
+            if (!能安排()) return;
+            openActionSheet((g && g.name) || '这个组', [
+                { 文字: '添加人员',     动作: "openGroupMemberPicker('" + id + "')" },
+                { 文字: '加一个下级组', 动作: "startNewGroup('" + id + "')" },
+                { 文字: '改名',         动作: "renameGroup('" + id + "')" },
+                { 文字: '删掉这个组',   动作: "deleteGroup('" + id + "')", 危险: true }
+            ]);
         }
 
         async function renameGroup(id) {
@@ -3712,14 +3740,26 @@
             loadChurchTree();
         }
 
+        // 删组 = 连下面的子组一起删（2026-10-12 改）。
+        //
+        // 原来是「下面还有子组就不让删」，结果 Yuan 要删「英文」得先删
+        // 青年部 → 少年部 → 1组 → 2组 → 3组，**六步**，他以为是坏了。
+        // 那条规则没必要：删组**不删人**，里面的人只是回到「还没进组」，可逆。
+        // 所以改成让他做，但**先把后果摆出来**——删几个组、多少人会被挪出来。
         async function deleteGroup(id) {
-            const g    = _groups.find(x => x.id === id);
-            const kids = _groups.filter(x => x.parent_id === id).length;
-            const inIt = _members.filter(m => m.group_id === id).length;
-            if (kids) { alert('「' + ((g && g.name) || '这个组') + '」下面还有 ' + kids + ' 个小组，先把它们删掉。'); return; }
-            if (!confirm(inIt
-                ? '「' + ((g && g.name) || '这个组') + '」里还有 ' + inIt + ' 位牧者。\n删掉之后他们会回到「还没建组的牧者」，档案不受影响。确定吗？'
-                : '删掉「' + ((g && g.name) || '这个组') + '」？')) return;
+            const g = _groups.find(x => x.id === id);
+            const 名 = (g && g.name) || '这个组';
+
+            const { data: 影响, error: e1 } = await _db.rpc('group_delete_impact', { p_group_id: id });
+            if (e1) { showError('查不到影响范围', e1); return; }
+
+            const 组数 = (影响 && 影响['组数']) || 1;
+            const 人数 = (影响 && 影响['人数']) || 0;
+            let 话 = '删掉「' + 名 + '」？';
+            if (组数 > 1) 话 += '\n\n下面的 ' + (组数 - 1) + ' 个小组会一起删掉：\n' + (影响['组名'] || '');
+            if (人数 > 0) 话 += '\n\n' + 人数 + ' 个人会回到「还没进组」，他们的档案和发表过的内容不受影响。';
+            if (!confirm(话)) return;
+
             const { error } = await _db.rpc('delete_group', { p_group_id: id });
             if (error) { showError('删不掉', error); return; }
             loadChurchTree();
