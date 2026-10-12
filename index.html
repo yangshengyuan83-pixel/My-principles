@@ -3424,7 +3424,7 @@
         // 组名右边那个「…」用的就是它。
         // 为什么不另做一个弹窗：一个教会管理界面已经有够多窗口了，
         // 同一个壳子换内容，人看到的位置、动画、关法都一样，少学一样东西。
-        function openActionSheet(标题, 项目) {
+        function openActionSheet(标题, 项目, 尾注) {
             openPeoplePicker({ 标题: 标题, 候选: [], 空话: '', 提交: null });
             document.getElementById('people-picker-search').parentElement.classList.add('hidden');
             document.getElementById('people-picker-done').classList.add('hidden');
@@ -3433,7 +3433,8 @@
                 '<div onclick="closePeoplePicker(); setTimeout(function(){ ' + it.动作 + ' }, 320);" '
               + 'class="flex items-center px-3 py-3.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
               + '<span class="text-[15px] font-bold ' + (it.危险 ? 'text-red-500' : 'text-black') + '">'
-              + escapeHtml(it.文字) + '</span></div>').join('');
+              + escapeHtml(it.文字) + '</span></div>').join('')
+              + (尾注 ? '<div class="px-3 pt-3 pb-1 text-[12px] text-slate-400 leading-[1.8]">' + escapeHtml(尾注) + '</div>' : '');
         }
 
         function openPeoplePicker({ 标题, 候选, 已选, 空话, 提交 }) {
@@ -3583,8 +3584,15 @@
             }
 
             function 人行(m, indent) {
+                // 名字后面挂一个「…」，和组那一行同一个样子：换组 / 移出这个组。
+                // 不做整行可点——名字里的职分本来就能点（自己改职分），
+                // 两个可点区域叠在一起，人会不知道点哪算哪。
+                const 菜单 = 能安排()
+                    ? ' <span onclick="event.stopPropagation(); openPersonMenu(\'' + m.id + '\')" '
+                      + 'class="px-1 text-[13px] leading-none font-black text-slate-200 hover:text-black cursor-pointer align-middle">…</span>'
+                    : '';
                 return treeRow(indent, 'M' + m.id, '', null, false, 'text-slate-400',
-                    memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : ''));
+                    memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : '') + 菜单);
             }
 
             function renderGroup(g, indent) {
@@ -3601,7 +3609,7 @@
                 // 空组给一句话，不然展开是一片空白，人会以为坏了
                 if (!childrenOf(g.id).length && !peopleIn(g.id).length) {
                     out += '<div class="py-1 text-[11px] text-slate-300 italic" style="padding-left:'
-                         + ((indent + 1) * 14 + 14) + 'px">还没有人，点右边的「…」添加</div>';
+                         + ((indent + 1) * 14 + 14) + 'px">空的 · 点组名右边的「…」加人或加小组</div>';
                 }
                 return out;
             }
@@ -3669,20 +3677,26 @@
         let _groupCommitting = false;
         async function commitNewGroup(el) {
             if (_groupCommitting) return;
-            const name = (el && el.value || '').trim();
-            if (el) el.value = '';            // 防止失焦那一次又读到同样的字
             _groupCommitting = true;
-            // parent 以输入框身上记的为准，全局变量只当后备
-            const parent = (el && el.dataset && el.dataset.parent) || _newGroupUnder || null;
-            _newGroupUnder = undefined;
-            try {
 
-            if (!name) { renderChurchTree(); return; }
-            const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: parent || null });
-            if (error) { showError('建不了', error); renderChurchTree(); return; }
-            if (parent) _treeOpen.add('G' + parent);
-            loadChurchTree();
-            } finally { _groupCommitting = false; }
+            const name   = (el && el.value || '').trim();
+            const parent = (el && el.dataset && el.dataset.parent) || null;
+            _newGroupUnder = undefined;
+
+            // **立刻把输入框从页面上摘掉**，它再也发不出任何事件。
+            // 之前只是把 value 清空、加一个开关，还是漏了——
+            // 元素还在，就还有机会再触发一次。拿掉它最干净。
+            try { if (el && el.parentElement) el.parentElement.remove(); } catch (e) {}
+
+            try {
+                if (!name) { renderChurchTree(); return; }
+                const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: parent });
+                if (error) { showError('建不了', error); loadChurchTree(); return; }
+                if (parent) _treeOpen.add('G' + parent);
+                await loadChurchTree();        // 等它真的画完再放开锁
+            } finally {
+                _groupCommitting = false;
+            }
         }
 
         // ⚠️ 「建在哪个组下面」写在**输入框自己身上**（data-parent），不是只记在全局变量里。
@@ -3693,10 +3707,15 @@
             return '<div class="flex items-center gap-1.5 py-1" style="padding-left:' + (indent * 14) + 'px">'
                  + '<span class="w-3"></span>'
                  + '<input id="inline-group-input" data-parent="' + (parentId || '') + '" '
-                 + 'placeholder="组名，回车确认" autocomplete="off" '
+                 + 'placeholder="组名，按回车" autocomplete="off" '
                  + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();commitNewGroup(this);} '
                  + 'if(event.key===\'Escape\'){cancelNewGroup();}" '
-                 + 'onblur="commitNewGroup(this)" '
+                 // ⚠️ onblur 以前是「有字就建」，现在改成**一律取消**。
+                 //    原因：keydown 和 blur 两条路都能提交，到底哪条先跑、开关什么时候关，
+                 //    全靠时序去推——推错一次就多出一个重复的组，已经发生过三次。
+                 //    砍掉一条路，只留回车。代价是"打了一半点走会丢"，
+                 //    但那是**可预期**的；多建一个组不可预期，还要人自己去发现、去删。
+                 + 'onblur="cancelNewGroup()" '
                  + 'class="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded px-2 py-0.5 text-[12px] outline-none focus:border-black transition-all">'
                  + '</div>';
         }
@@ -3719,15 +3738,84 @@
         }
 
         // 组名右边那个「…」。四个动作收在一起，一行只剩一个符号。
+        // 组菜单。**组和人不放在同一层**（Yuan 2026-10-12 定），所以：
+        //   · 下面有小组 → 不给「添加人员」，人要加到小组里
+        //   · 里面有人   → 不给「加一个下级组」，要先把人移走
+        // 不是把按钮灰掉，是**不出现**，再用一句话说明为什么——
+        // 灰着的按钮还是会让人去点，点了没反应更难受。
+        // 数据库那边（create_group / set_person_group）也卡同一条，界面绕不过去。
         function openGroupMenu(id) {
             const g = _groups.find(x => x.id === id);
             if (!能安排()) return;
-            openActionSheet((g && g.name) || '这个组', [
-                { 文字: '添加人员',     动作: "openGroupMemberPicker('" + id + "')" },
-                { 文字: '加一个下级组', 动作: "startNewGroup('" + id + "')" },
-                { 文字: '改名',         动作: "renameGroup('" + id + "')" },
-                { 文字: '删掉这个组',   动作: "deleteGroup('" + id + "')", 危险: true }
-            ]);
+            const 有子组 = _groups.some(x => x.parent_id === id);
+            const 有人   = _members.some(m => m.group_id === id);
+
+            const 项目 = [];
+            if (!有子组) 项目.push({ 文字: '添加人员',     动作: "openGroupMemberPicker('" + id + "')" });
+            if (!有人)   项目.push({ 文字: '加一个下级组', 动作: "startNewGroup('" + id + "')" });
+            项目.push({ 文字: '改名',       动作: "renameGroup('" + id + "')" });
+            项目.push({ 文字: '删掉这个组', 动作: "deleteGroup('" + id + "')", 危险: true });
+
+            const 尾注 = 有子组 ? '这个组下面有小组，人要加到小组里。'
+                       : 有人   ? '这个组里有人。要加小组，先把人移走（点他的名字 → 移出这个组）。'
+                       : '';
+            openActionSheet((g && g.name) || '这个组', 项目, 尾注);
+        }
+
+        // ── 点人名出菜单（Yuan 2026-10-12）────────────────
+        //
+        // 以前「把人从组里拿出来」藏在"添加人员"的面板里——
+        // 那个人是打着勾的，取消勾才算移除。四步，而且谁也想不到
+        // "移除"会藏在"添加"里面。Yuan：「这个设计，大家很难找到，不行」。
+        //
+        // 为什么不做拖动：手机上的拖动很难做准，而这套以后 App 里也要有，
+        // Flutter 那边再实现一套拖动成本高、手感也难一致。
+        // 菜单在手机、平板、App 上是同一回事，学一次用三处。
+        function openPersonMenu(userId) {
+            if (!能安排()) return;
+            const m = _members.find(x => x.id === userId);
+            if (!m) return;
+            const 项目 = [{ 文字: '换一个组', 动作: "pickGroupForPerson('" + userId + "')" }];
+            if (m.group_id) 项目.push({ 文字: '移出这个组', 动作: "removeFromGroup('" + userId + "')" });
+            openActionSheet(memberName(m), 项目,
+                m.group_id ? '移出之后他会回到「还没进组的羊」，档案和发表过的内容不受影响。' : '');
+        }
+
+        // 换组：只列**没有子组**的组（有子组的组不收人）
+        function pickGroupForPerson(userId) {
+            const m  = _members.find(x => x.id === userId);
+            const 可选 = _groups.filter(g => !_groups.some(x => x.parent_id === g.id));
+            if (!可选.length) {
+                alert('还没有可以放人的组。有小组的组不收人，先在最里面那一层建一个组。');
+                return;
+            }
+            openActionSheet(memberName(m) + ' 放到哪个组',
+                可选.map(g => ({
+                    文字: 组全名(g) + (g.id === m.group_id ? '　（现在就在这里）' : ''),
+                    动作: "setPersonGroupNow('" + userId + "', '" + g.id + "')"
+                })));
+        }
+
+        // 「中文 / 中文2组」这样连着上级一起显示——
+        // 光一个「2组」，三个顶层组下面各有一个「2组」时根本分不清。
+        function 组全名(g) {
+            const 路 = [];
+            let cur = g, 保险 = 0;
+            while (cur && 保险++ < 20) { 路.unshift(cur.name || '（没名字）'); cur = cur.parent_id ? _groups.find(x => x.id === cur.parent_id) : null; }
+            return 路.join(' / ');
+        }
+
+        async function setPersonGroupNow(userId, groupId) {
+            const { error } = await _db.rpc('set_person_group', { p_user_id: userId, p_group_id: groupId });
+            if (error) { showError('放不进去', error); return; }
+            _treeOpen.add('G' + groupId);
+            loadChurchTree();
+        }
+
+        async function removeFromGroup(userId) {
+            const { error } = await _db.rpc('set_person_group', { p_user_id: userId, p_group_id: null });
+            if (error) { showError('移不出来', error); return; }
+            loadChurchTree();
         }
 
         async function renameGroup(id) {
