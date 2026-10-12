@@ -3540,6 +3540,86 @@
             });
         }
 
+        // ── 一棵树只有「组」（2026-10-12 大改）──────────────
+        //
+        // Yuan：「家庭牧场只是个名字。2组的下级就可以再建组，
+        //        取名『Michelle的家庭牧场』，里面当然是可以有牧者和羊。」
+        //
+        // 原来是三层写死的：组 → 家庭牧场（= 一位牧者）→ 成员。
+        // 于是组只能装牧者、羊只能挂在牧者身上，同一个勾选面板要做两件事。
+        // 现在只有一种东西——**组**。组里有人，组可以有子组，名字自己起。
+        // 「李东的家庭牧场」就是一个组名，没有特殊待遇。
+        function renderChurchTree() {
+            const box = document.getElementById('church-tree');
+            if (!box) return;
+
+            const childrenOf = pid => _groups.filter(g => (g.parent_id || null) === pid);
+            const peopleIn   = gid => _members.filter(m => m.group_id === gid);
+
+            // 一个组的人头 = 自己组里的人 + 所有子组的
+            function groupCount(g) {
+                let n = peopleIn(g.id).length;
+                childrenOf(g.id).forEach(c => n += groupCount(c));
+                return n;
+            }
+
+            function 人行(m, indent) {
+                return treeRow(indent, 'M' + m.id, '', null, false, 'text-slate-400',
+                    memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : ''));
+            }
+
+            // 每个组底下固定一行两个动作。**不管有没有人都在**（Yuan 2026-10-12）。
+            // 这一行取代了原来组名后面那个「＋」——少一个符号，动作就在它作用的地方。
+            function 动作行(gid, indent) {
+                if (!能安排()) return '';
+                return '<div class="py-1 text-[11px]" style="padding-left:' + (indent * 14 + 14) + 'px">'
+                     + '<span onclick="event.stopPropagation(); openGroupMemberPicker(\'' + gid + '\')" '
+                     +   'class="text-slate-300 hover:text-black cursor-pointer">添加人员</span>'
+                     + '<span class="text-slate-200 mx-1.5">·</span>'
+                     + '<span onclick="event.stopPropagation(); startNewGroup(\'' + gid + '\')" '
+                     +   'class="text-slate-300 hover:text-black cursor-pointer">加一个下级组</span>'
+                     + '</div>';
+            }
+
+            function renderGroup(g, indent) {
+                let out = '';
+                const gKey = 'G' + g.id;
+                out += treeRow(indent, gKey, '', groupCount(g), true,
+                    indent === 0 ? 'font-black text-slate-600' : 'text-slate-500',
+                    escapeHtml(g.name || '（没名字的组）') + groupRowActions(g));
+                // 正在这个组下面建新组 → 当场长出输入框
+                if (_newGroupUnder === g.id) out += inlineGroupInputHtml(indent + 1);
+                if (!_treeOpen.has(gKey)) return out;
+                childrenOf(g.id).forEach(c => out += renderGroup(c, indent + 1));
+                peopleIn(g.id).forEach(m => out += 人行(m, indent + 1));
+                out += 动作行(g.id, indent + 1);
+                return out;
+            }
+
+            // 还没进组的人。分两桶是 Yuan 2026-10-12 定的（不合并）。
+            // **不能藏起来**：藏起来的话一个人在系统里等于不存在，没人会想起要安排他。
+            const 羊   = _members.filter(m => !m.group_id && !PASTOR_ROLES.includes(m.role));
+            const 牧者 = _members.filter(m => !m.group_id &&  PASTOR_ROLES.includes(m.role));
+
+            let html = '';
+            if (羊.length) {
+                html += treeRow(0, 'ORPH', '还没进组的羊', 羊.length, true, 'font-black text-amber-600');
+                if (_treeOpen.has('ORPH')) 羊.forEach(m => html += 人行(m, 1));
+            }
+            if (牧者.length) {
+                html += treeRow(0, 'NG', '还没建组的牧者', 牧者.length, true, 'font-black text-amber-600');
+                if (_treeOpen.has('NG')) 牧者.forEach(m => html += 人行(m, 1));
+            }
+            if (html) html += '<div class="h-2"></div>';
+
+            childrenOf(null).forEach(g => html += renderGroup(g, 0));
+            if (_newGroupUnder === null) html += inlineGroupInputHtml(0);
+
+            // ⚠️ 这句不能放在函数最前面做「没人就 return」的早退——
+            //    早退会把正在输入的新建组输入框一起挡掉，于是点「＋」什么反应都没有。
+            box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人，也还没有分组</div>';
+        }
+
         // ── 就地建组（2026-10-12）────────────────────────
         //
         // Yuan：「点击 ＋ 不弹出微信那样的框，只是直接弹出一个『中文＋』这样的框」。
