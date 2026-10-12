@@ -670,11 +670,12 @@
                     <option value="师母">师母</option>
                     <option value="牧师">牧师</option>
                 </select>
-                <!-- 2026-09-26：从"手填牧者名字"改成"从真实牧者里选"。
-                     手填会出现「李东」「李东牧者」「东哥」三种写法指同一个人，
-                     跟教会名那个坑完全同形（那个已经踩过一次）。 -->
-                <select id="confirm-shepherd-input" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all appearance-none cursor-pointer">
-                    <option value="">他属于谁的家庭牧场</option>
+                <!-- 2026-09-26：从"手填牧者名字"改成"从真实的里面选"——
+                     手填会出现「李东」「李东牧者」「东哥」三种写法指同一个人。
+                     2026-10-12：从"选一位牧者"改成"选一个组"，
+                     因为家庭牧场已经就是一个组了（组名可以叫「李东的家庭牧场」）。 -->
+                <select id="confirm-group-input" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[16px] outline-none focus:border-black transition-all appearance-none cursor-pointer">
+                    <option value="">把他编进哪个组</option>
                 </select>
                 <!-- 「教会」那一栏 2026-10-10 拿掉了：教会不再手填。
                      用邀请码进来的人自动跟邀请人同一间教会（数据库触发器），
@@ -1189,7 +1190,7 @@
                 //    （PGRST201 "more than one relationship was found"），
                 //    _myProfile 变成 null → canWrite() 全员 false → **所有人都发布不了**。
                 //    2026-10-10 真的发生过一次：当天傍晚 6:01 的自动任务发布不了内容才发现。
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches!church_id(name, address, region, state, country), shepherd_id, region, state, country, is_report_reviewer')
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches!church_id(name, address, region, state, country), group_id, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -1429,18 +1430,17 @@
             _confirmTargetId = userId;
             document.getElementById('confirm-who').innerHTML =
                 '要确认的是：<span class="font-black text-black">' + name + '</span>';
-            ['confirm-role-input','confirm-shepherd-input']
+            ['confirm-role-input','confirm-group-input']
                 .forEach(id => document.getElementById(id).value = '');
 
-            // 把真实的牧者填进下拉框。一个都没有的时候留一句话，
+            // 把本教会真实的组填进下拉框。一个都没有的时候留一句话，
             // 不要给一个空下拉框让人对着发呆。
             await loadChurchTree();
-            const sel = document.getElementById('confirm-shepherd-input');
-            const pastors = _members.filter(m => PASTOR_ROLES.includes(m.role));
-            sel.innerHTML = pastors.length
-                ? '<option value="">他属于谁的家庭牧场</option>' +
-                  pastors.map(p => `<option value="${p.id}">${escapeHtml(memberName(p))}</option>`).join('')
-                : '<option value="">还没有牧者，这一项先空着</option>';
+            const sel = document.getElementById('confirm-group-input');
+            sel.innerHTML = _groups.length
+                ? '<option value="">把他编进哪个组</option>' +
+                  _groups.map(g => `<option value="${g.id}">${(g.parent_id ? '· ' : '') + escapeHtml(g.name || '（没名字）')}</option>`).join('')
+                : '<option value="">还没有分组，这一项先空着</option>';
             document.getElementById('confirm-error').innerText = '';
             const m = document.getElementById('confirm-modal');
             m.classList.remove('hidden');
@@ -1461,15 +1461,14 @@
             err.innerText = '';
             btn.disabled = true; btn.innerText = '处理中…';
             try {
-                // 2026-09-26：参数换了。旧的是 p_flock text / p_shepherd text（手填名字），
-                // 新的是 p_shepherd_id uuid（指向那位牧者本人）。
-                // flock_name 那一列已经删掉——它和 shepherd_id 是同一个意思的两种写法。
+                // 参数变过三轮：
+                //   2026-09-26  手填牧者名字 → p_shepherd_id（指向那位牧者本人）
+                //   2026-10-10  不再传 p_church（传空会把继承来的教会名清掉，真会出事）
+                //   2026-10-12  p_shepherd_id → p_group_id（家庭牧场就是一个组了）
                 const { error } = await _db.rpc('confirm_member', {
-                    p_user_id:     _confirmTargetId,
-                    p_role:        document.getElementById('confirm-role-input').value.trim(),
-                    // p_church 不再传：2026-10-10 起 confirm_member 不碰 church_name 了（见 15h）。
-                    // 传空字符串会把继承来的教会名清掉，那是真会出事的。
-                    p_shepherd_id: document.getElementById('confirm-shepherd-input').value || null
+                    p_user_id:  _confirmTargetId,
+                    p_role:     document.getElementById('confirm-role-input').value.trim(),
+                    p_group_id: document.getElementById('confirm-group-input').value || null
                 });
                 if (error) throw error;
                 closeConfirmModal();
@@ -3225,7 +3224,8 @@
         //    那等于假定所有教会都跟散那教会一样，有的教会有印尼语。
         //
         // 归属规则（见 06_产品决策记录/2026-09-26_家庭牧场与分组.md）：
-        //   · 家庭牧场 = 一位牧者，成员的 shepherd_id 指向他
+        //   · 2026-10-12 起没有「家庭牧场」这一层了：它就是一个组的名字。
+        //     一棵树只有组，组里有人，组可以有子组（profiles.group_id / church_groups.parent_id）
         //   · **牧场挂在哪个组，看牧者的组**，不看成员自己的语言
         //   · 组只存在牧者身上，成员不存，避免两份对不上
 
@@ -3306,7 +3306,7 @@
 
             const [mRes, gRes] = await Promise.all([
                 _db.from('profiles')
-                   .select('id, real_name, nickname, role, status, church_id, shepherd_id, group_id, voice_lang, is_admin')
+                   .select('id, real_name, nickname, role, status, church_id, group_id, voice_lang, is_admin')
                    .eq('church_id', cid),
                 _db.from('church_groups').select('*').eq('church_id', cid).order('sort_order')
             ]);
@@ -3344,7 +3344,7 @@
 
         /// 第一次加载时，把"我在的那一支"自动展开。
         ///
-        /// 每次打开个人中心都要自己点三层才看得到本牧场的人，那三下点击
+        /// 每次打开个人中心都要自己点三层才看得到本组的人，那三下点击
         /// 每天都要重来一遍——**默认应该是"我最可能想看的那个状态"**。
         ///
         /// 只在第一次自动展开：之后是他自己收起来的，不能每次刷新又给他打开。
@@ -3355,20 +3355,19 @@
             if (!me) return;
             _branchOpened = true;
 
-            // 我自己就是牧者的话，展开的是我自己的牧场；否则展开我牧者的
-            const shepherd = PASTOR_ROLES.includes(me.role)
-                ? me
-                : _members.find(m => m.id === me.shepherd_id);
-
-            if (!shepherd) { _treeOpen.add('ORPH'); return; }   // 还没被安排
-
-            _treeOpen.add('F' + shepherd.id);
-            const g = _groups.find(x => x.id === shepherd.group_id);
-            if (g) {
+            // 2026-10-12 重写：一棵树只有组了，没有「家庭牧场」这一层，
+            // 也没有写死的语言层（原来是 'F'+牧者id 和 'L'+语言）。
+            // 现在展开的是**我在的那个组、以及它上面每一级**。
+            if (!me.group_id) {
+                // 还没进组 → 展开他会出现在的那个黄桶
+                _treeOpen.add(PASTOR_ROLES.includes(me.role) ? 'NG' : 'ORPH');
+                return;
+            }
+            let g = _groups.find(x => x.id === me.group_id);
+            let 保险 = 0;                      // 万一数据成环，别把浏览器转死
+            while (g && 保险++ < 20) {
                 _treeOpen.add('G' + g.id);
-                _treeOpen.add('L' + g.lang);
-            } else {
-                _treeOpen.add('NG');
+                g = g.parent_id ? _groups.find(x => x.id === g.parent_id) : null;
             }
         }
 
@@ -3401,8 +3400,8 @@
         //   就从上面还没有安排家庭牧场里选择」）。
         //
         // ⚠️ 组和家庭牧场装的不是同一种东西，所以是两个动作：
-        //    · **组**里编的是**牧者**        → set_pastor_group
-        //    · **家庭牧场**里放的是**成员**  → set_member_shepherd
+        //    （2026-10-12 之前这里是两套：组装牧者、牧场装成员。
+        //      现在一棵树只有组，统一走 set_person_group。）
         //    混成一个按钮会让人以为"把谁拖进哪里都行"，然后数据就乱了。
         function 能安排() {
             return isPastorMe() || (_myProfile && _myProfile.is_admin);
@@ -3415,8 +3414,8 @@
         // 让人把名字在脑子里换算成数字再打进去，那是机器的方便。
         //
         // ⚠️ 组和家庭牧场装的不是同一种东西，所以**是两个入口、一个面板**：
-        //    · **组**里编的是**牧者**        → set_pastor_group
-        //    · **家庭牧场**里放的是**成员**  → set_member_shepherd
+        //    （2026-10-12 之前这里是两套：组装牧者、牧场装成员。
+        //      现在一棵树只有组，统一走 set_person_group。）
         //    面板长得一样，提交时走的函数不一样。
 
         let _pp = { 候选: [], 选中: new Set(), 原本: new Set(), 提交: null };
@@ -3449,16 +3448,31 @@
             const 显示 = _pp.候选.filter(m => !q || memberLabel(m).toLowerCase().includes(q));
 
             empty.classList.toggle('hidden', !!_pp.候选.length);
-            list.innerHTML = 显示.map(m => {
-                const on = _pp.选中.has(m.id);
-                return '<div onclick="togglePeoplePick(\'' + m.id + '\')" '
-                     + 'class="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
-                     + '<span class="w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center '
-                     +   (on ? 'bg-black border-black' : 'border-slate-300') + '">'
-                     +   (on ? '<span class="text-white text-[11px] leading-none">✓</span>' : '') + '</span>'
-                     + '<span class="text-[15px] font-bold text-black truncate">' + escapeHtml(memberLabel(m)) + '</span>'
-                     + '</div>';
-            }).join('') || (_pp.候选.length
+
+            // 按段分组显示（像微信通讯录的「星标朋友 / A / B …」）。
+            // 段的顺序照 _pp.候选 里第一次出现的顺序，不另外排——
+            // 顺序是调用方定的意思，代码不该替它重排。
+            const 段序 = [];
+            const 分段 = {};
+            显示.forEach(m => {
+                const k = m._段 || '';
+                if (!(k in 分段)) { 分段[k] = []; 段序.push(k); }
+                分段[k].push(m);
+            });
+
+            list.innerHTML = 段序.map(k =>
+                (k ? '<div class="px-3 pt-3 pb-1 text-[10px] font-black text-slate-400 tracking-widest">' + escapeHtml(k) + '</div>' : '')
+              + 分段[k].map(m => {
+                    const on = _pp.选中.has(m.id);
+                    return '<div onclick="togglePeoplePick(\'' + m.id + '\')" '
+                         + 'class="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
+                         + '<span class="w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center '
+                         +   (on ? 'bg-black border-black' : 'border-slate-300') + '">'
+                         +   (on ? '<span class="text-white text-[11px] leading-none">✓</span>' : '') + '</span>'
+                         + '<span class="text-[15px] font-bold text-black truncate">' + escapeHtml(memberLabel(m)) + '</span>'
+                         + '</div>';
+                }).join('')
+            ).join('') || (_pp.候选.length
                 ? '<div class="px-3 py-6 text-[13px] text-slate-300 italic">没有符合的人</div>' : '');
         }
 
@@ -3486,225 +3500,45 @@
             loadChurchTree();
         }
 
-        // ── 两个入口 ──────────────────────────────────────
+        // ── 往一个组里加人（2026-10-12 合并成这一个）────────
+        //
+        // 原来这里有五个函数：往组里编牧者、往牧场里加人、给人选牧者、
+        // 给牧者选组、空组的小菜单——因为那时「组」和「家庭牧场」是两种东西。
+        // 现在一棵树只有组，**一个入口就够了**。
+        //
+        // 面板分三段（Yuan 2026-10-12 要的）：
+        //   还没进组的羊 / 还没建组的牧者 / 从别的组里选
+        // 已经在这个组里的人**预先打勾**，取消勾选就是把他移出去。
 
-        // 往一个组里编牧者
         function openGroupMemberPicker(groupId) {
             const g = _groups.find(x => x.id === groupId);
-            const 牧者们 = _members.filter(m => PASTOR_ROLES.includes(m.role));
+            const 组名 = (g && g.name) || '这个组';
+
+            const 带段 = (arr, 段) => arr.map(m => Object.assign({}, m, { _段: 段 }));
+            const 在这组 = _members.filter(m => m.group_id === groupId);
+            const 羊     = _members.filter(m => !m.group_id && !PASTOR_ROLES.includes(m.role));
+            const 牧者   = _members.filter(m => !m.group_id &&  PASTOR_ROLES.includes(m.role));
+            const 别的组 = _members.filter(m => m.group_id && m.group_id !== groupId);
+
+            const 候选 = [].concat(
+                带段(在这组, '已经在「' + 组名 + '」里'),
+                带段(羊,     '还没进组的羊'),
+                带段(牧者,   '还没建组的牧者'),
+                带段(别的组, '从别的组里选')
+            );
+
             openPeoplePicker({
-                标题: '谁在「' + ((g && g.name) || '这个组') + '」',
-                候选: 牧者们,
-                已选: 牧者们.filter(m => m.group_id === groupId).map(m => m.id),
-                空话: '教会里还没有牧者。组里编的是牧者——先给一位弟兄姊妹牧者的职分。',
+                标题: 组名,
+                候选: 候选,
+                已选: 在这组.map(m => m.id),
+                空话: '教会里还没有别人。等有人进来之后，这里就能勾了。',
                 提交: async (id, 勾上) => {
-                    const { error } = await _db.rpc('set_pastor_group',
+                    const { error } = await _db.rpc('set_person_group',
                         { p_user_id: id, p_group_id: 勾上 ? groupId : null });
                     return error ? error.message : null;
                 }
             });
         }
-
-        // 往一位牧者的家庭牧场里加人
-        function openFlockMemberPicker(pastorId) {
-            const p = _members.find(x => x.id === pastorId);
-            // 候选：还没有牧场的人 + 已经在这个牧场里的人（后者预先勾上，方便移出去）
-            const 候选 = _members.filter(m =>
-                m.id !== pastorId && !PASTOR_ROLES.includes(m.role)
-                && (!m.shepherd_id || m.shepherd_id === pastorId));
-            openPeoplePicker({
-                标题: memberName(p) + ' 的家庭牧场',
-                候选: 候选,
-                已选: 候选.filter(m => m.shepherd_id === pastorId).map(m => m.id),
-                空话: '没有待安排的人。新人进来、被认过之后会出现在这里。',
-                提交: async (id, 勾上) => {
-                    const { error } = await _db.rpc('set_member_shepherd',
-                        { p_user_id: id, p_shepherd_id: 勾上 ? pastorId : null });
-                    return error ? error.message : null;
-                }
-            });
-        }
-
-        // 「还没安排家庭牧场」里某个人后面的入口：选一位牧者把他放过去。
-        // 这里是一个人配一位牧者，所以候选是**牧者**，而且只能选一个。
-        function pickShepherdFor(userId) {
-            const who   = _members.find(x => x.id === userId);
-            const 牧者们 = _members.filter(m => PASTOR_ROLES.includes(m.role));
-            openPeoplePicker({
-                标题: memberName(who) + ' 归谁牧养',
-                候选: 牧者们,
-                已选: who && who.shepherd_id ? [who.shepherd_id] : [],
-                空话: '教会里还没有牧者。先给一位弟兄姊妹牧者的职分。',
-                提交: async (id, 勾上) => {
-                    // 一个人只属于一位牧者：勾上就设成他，取消就清空
-                    const { error } = await _db.rpc('set_member_shepherd',
-                        { p_user_id: userId, p_shepherd_id: 勾上 ? id : null });
-                    return error ? error.message : null;
-                }
-            });
-        }
-
-        function shepherdPickerHtml(m) {
-            if (!能安排()) return '';
-            return ' <span onclick="event.stopPropagation(); pickShepherdFor(\'' + m.id + '\')" '
-                 + 'class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">安排</span>';
-        }
-
-        function groupPickerHtml(p) {
-            if (!能安排()) return '';
-            return ' <span onclick="event.stopPropagation(); pickGroupForPastor(\'' + p.id + '\')" '
-                 + 'class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">编进组</span>';
-        }
-
-        // 一位牧者编进哪个组：候选是**组**不是人，所以不用勾人面板，列一行行组让他点。
-        function pickGroupForPastor(pastorId) {
-            if (!_groups.length) { alert('还没有分组。先在下面「编辑分组」里建一个。'); return; }
-            const p = _members.find(x => x.id === pastorId);
-            const 行 = _groups.map(g =>
-                '<div onclick="setPastorGroupNow(\'' + pastorId + '\', \'' + g.id + '\')" '
-              + 'class="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
-              + '<span class="text-[15px] font-bold text-black truncate">'
-              + (g.parent_id ? '· ' : '') + escapeHtml(g.name || '（没名字）') + '</span></div>').join('');
-            openPeoplePicker({ 标题: memberName(p) + ' 编进哪个组', 候选: [], 空话: '', 提交: null });
-            document.getElementById('people-picker-list').innerHTML = 行;
-            document.getElementById('people-picker-empty').classList.add('hidden');
-            document.getElementById('people-picker-search').classList.add('hidden');
-        }
-
-        async function setPastorGroupNow(pastorId, groupId) {
-            const { error } = await _db.rpc('set_pastor_group', { p_user_id: pastorId, p_group_id: groupId });
-            document.getElementById('people-picker-search').classList.remove('hidden');
-            if (error) { showError('编不进去', error); return; }
-            closePeoplePicker();
-            _treeOpen.add('G' + groupId);
-            loadChurchTree();
-        }
-
-        // 空组那一行点下去：加下级组 / 编牧者进来
-        function emptyGroupActions(groupId) {
-            if (!能安排()) return;
-            const g = _groups.find(x => x.id === groupId);
-            const 行 = [
-                ['加一个下级组',   'closePeoplePicker(); setTimeout(() => startNewGroup(\'' + groupId + '\'), 320);'],
-                ['把牧者编进来',   'closePeoplePicker(); setTimeout(() => openGroupMemberPicker(\'' + groupId + '\'), 320);']
-            ].map(([t, js]) =>
-                '<div onclick="' + js + '" class="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
-              + '<span class="text-[15px] font-bold text-black">' + t + '</span></div>').join('');
-            openPeoplePicker({ 标题: (g && g.name) || '这个组', 候选: [], 空话: '', 提交: null });
-            document.getElementById('people-picker-list').innerHTML = 行;
-            document.getElementById('people-picker-empty').classList.add('hidden');
-            document.getElementById('people-picker-search').classList.add('hidden');
-        }
-
-        function renderChurchTree() {
-            const box = document.getElementById('church-tree');
-            if (!box) return;
-            if (!_members.length) {
-                box.innerHTML = '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
-                return;
-            }
-
-            const pastors   = _members.filter(m => PASTOR_ROLES.includes(m.role));
-            const flockOf   = p => _members.filter(m => m.shepherd_id === p.id);
-            const headcount = p => 1 + flockOf(p).length;
-
-            // 还没被安排牧场的人、还没编进组的牧者。
-            // **排在最前面**（2026-09-26 Yuan 定）——跟「我邀请的人」同一个道理：
-            // 要人动手的东西放前面，不然翻到底下才看见，就没人去做了。
-            // 也**不能藏起来**：藏起来的话一个人在系统里等于不存在，没人会想起要安排他。
-            // 2026-10-10 Yuan 定：这份名单**所有人都看得到**，不只牧者——
-            // 「这样邀请的人也可以看得到，自己邀请的人还没有被介绍到具体的家庭牧场，减少担心」。
-            const noGroup = pastors.filter(p => !p.group_id);
-            const orphans = _members.filter(m => !m.shepherd_id && !PASTOR_ROLES.includes(m.role));
-
-            let html = '';
-
-            if (orphans.length) {
-                html += treeRow(0, 'ORPH', '还没进组的羊', orphans.length, true,
-                    'font-black text-amber-600');
-                if (_treeOpen.has('ORPH')) orphans.forEach(m =>
-                    html += treeRow(1, 'M' + m.id, '', null, false, 'text-slate-400',
-                        memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : '')
-                        + shepherdPickerHtml(m)));
-            }
-            if (noGroup.length) {
-                html += treeRow(0, 'NG', '还没建组的牧者', noGroup.length, true,
-                    'font-black text-amber-600');
-                if (_treeOpen.has('NG')) noGroup.forEach(p =>
-                    html += treeRow(1, 'M' + p.id, '', null, false, 'text-slate-400',
-                        memberLabelHtml(p) + groupPickerHtml(p)));
-            }
-            if (html) html += '<div class="h-2"></div>';
-
-            // ── 组是一棵树（2026-10-10）──────────────────
-            // 原来写死两层：语言 → 1~4 组。别的教会不一定这么分，
-            // 所以改成 name + parent_id 自己长出来，这里递归画。
-            // 数据上不限层数；界面上组这一层最多两级，再往下是家庭牧场和成员。
-            const childrenOf = pid => _groups.filter(g => (g.parent_id || null) === pid);
-
-            // 一个组的人头数 = 它自己组里牧者的牧场人数 + 所有子组的
-            function groupCount(g) {
-                let n = pastors.filter(p => p.group_id === g.id).reduce((a, p) => a + headcount(p), 0);
-                childrenOf(g.id).forEach(c => n += groupCount(c));
-                return n;
-            }
-
-            // 把一位牧者的家庭牧场画出来
-            function renderFlock(p, indent) {
-                let out = '';
-                const fKey  = 'F' + p.id;
-                const flock = flockOf(p);
-                // 牧场名字后面挂一个「＋ 加人」，点开是勾人面板（像微信往群里加人）
-                out += treeRow(indent, fKey, '', flock.length, true, 'text-slate-500',
-                    escapeHtml(memberLabel(p) + ' 的家庭牧场')
-                    + (能安排()
-                        ? ' <span onclick="event.stopPropagation(); openFlockMemberPicker(\'' + p.id + '\')" '
-                          + 'class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">＋ 加人</span>'
-                        : ''));
-                if (!_treeOpen.has(fKey)) return out;
-                if (!flock.length) {
-                    const 可点 = 能安排();
-                    out += '<div ' + (可点 ? 'onclick="event.stopPropagation(); openFlockMemberPicker(\'' + p.id + '\')" ' : '')
-                         + 'class="py-1 text-[11px] italic ' + (可点 ? 'text-slate-400 cursor-pointer hover:text-black underline decoration-dotted underline-offset-2' : 'text-slate-300')
-                         + '" style="padding-left:' + ((indent + 1) * 14 + 14) + 'px">'
-                         + (可点 ? '还没有成员 · 点这里加' : '还没有成员') + '</div>';
-                }
-                flock.forEach(m => out += treeRow(indent + 1, 'M' + m.id, '', null, false, 'text-slate-400',
-                    memberLabelHtml(m) + (m.status !== 'active' ? '（待确认）' : '')));
-                return out;
-            }
-
-            function renderGroup(g, indent) {
-                let out = '';
-                const gKey = 'G' + g.id;
-                const kids = childrenOf(g.id);
-                const here = pastors.filter(p => p.group_id === g.id);
-                out += treeRow(indent, gKey, '', groupCount(g), true,
-                    (indent === 0 ? 'font-black text-slate-600' : 'text-slate-500'),
-                    escapeHtml(g.name || '（没名字的组）') + groupRowActions(g));
-                // 正在这个组下面建新组 → 当场长出一个输入框
-                if (_newGroupUnder === g.id) out += inlineGroupInputHtml(indent + 1);
-                if (!_treeOpen.has(gKey)) return out;
-
-                if (!kids.length && !here.length) {
-                    const 可点 = 能安排();
-                    out += '<div ' + (可点 ? 'onclick="event.stopPropagation(); emptyGroupActions(\'' + g.id + '\')" ' : '')
-                         + 'class="py-1 text-[11px] italic ' + (可点 ? 'text-slate-400 cursor-pointer hover:text-black underline decoration-dotted underline-offset-2' : 'text-slate-300')
-                         + '" style="padding-left:' + ((indent + 1) * 14 + 14) + 'px">'
-                         + (可点 ? '这个组还没有人 · 点这里加' : '这个组还没有人') + '</div>';
-                }
-                kids.forEach(c => out += renderGroup(c, indent + 1));
-                here.forEach(p => out += renderFlock(p, indent + 1));
-                return out;
-            }
-
-            childrenOf(null).forEach(g => html += renderGroup(g, 0));
-            if (_newGroupUnder === null) html += inlineGroupInputHtml(0);
-
-            box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
-        }
-
-        // ── 分组编辑（只有牧者看得到入口）──────────────
 
         // ── 就地建组（2026-10-12）────────────────────────
         //
@@ -3737,16 +3571,27 @@
 
         // 回车 = 建；Esc = 取消；点到别处去 = 有字就建，没字就取消
         // （打了一半点走就丢掉，比较气人，所以有字就当他是要建的。）
+        // ⚠️ 2026-10-12 修过一次：输入框上同时挂了「回车提交」和「失焦提交」，
+        //    回车提交成功之后焦点丢失，**又提交了一次**。而那时 _newGroupUnder
+        //    已经被清空，第二次就把同一个名字建到了**顶层**——
+        //    于是每建一个子组，顶层就多一个同名的垃圾组。
+        //    修法：进来第一件事把输入框清空并打标记，第二次调用直接退出。
+        let _groupCommitting = false;
         async function commitNewGroup(el) {
+            if (_groupCommitting) return;
             const name = (el && el.value || '').trim();
+            if (el) el.value = '';            // 防止失焦那一次又读到同样的字
+            _groupCommitting = true;
             const parent = _newGroupUnder;
             _newGroupUnder = undefined;
-            if (!name) { renderChurchTree(); return; }
+            try {
 
+            if (!name) { renderChurchTree(); return; }
             const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: parent || null });
             if (error) { showError('建不了', error); renderChurchTree(); return; }
             if (parent) _treeOpen.add('G' + parent);
             loadChurchTree();
+            } finally { _groupCommitting = false; }
         }
 
         function inlineGroupInputHtml(indent) {
@@ -3768,8 +3613,10 @@
         //    干净不该靠"藏起来"换，靠轻。
         function groupRowActions(g) {
             if (!能安排()) return '';
+            // 2026-10-12：这里原来还有一个「＋」，去掉了（Yuan：「去掉＋，看起来更简单」）。
+            // 建下级组和加人都挪到组底下那一行「添加人员 · 加一个下级组」——
+            // 少一个符号，而且动作就在它作用的地方。
             return '<span class="ml-1 inline-flex items-center gap-1.5 align-middle">'
-                 + '<span onclick="event.stopPropagation(); startNewGroup(\'' + g.id + '\')" title="在它下面加一个组" class="text-[13px] leading-none font-bold text-slate-200 hover:text-black cursor-pointer">＋</span>'
                  + '<span onclick="event.stopPropagation(); renameGroup(\'' + g.id + '\')" class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">改名</span>'
                  + '<span onclick="event.stopPropagation(); deleteGroup(\'' + g.id + '\')" class="text-[10px] font-bold text-slate-200 hover:text-red-500 cursor-pointer">删</span>'
                  + '</span>';
