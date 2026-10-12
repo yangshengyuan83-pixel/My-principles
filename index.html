@@ -293,25 +293,14 @@
 
                     <div class="flex items-baseline justify-between mb-3 pt-3 border-t border-slate-100">
                         <h3 id="church-tree-title" class="text-[10px] font-black text-slate-400 tracking-widest uppercase">人员</h3>
-                        <button id="btn-edit-groups" onclick="toggleGroupEditor()" class="hidden text-[10px] font-bold text-slate-400 hover:text-black transition-colors">编辑分组</button>
+                        <!-- 2026-10-12：「编辑分组」改成一个「＋」（Yuan：「看着简单，大家也能理解，
+                             这样的设计美学 apple 和微信都在用」）。
+                             点它**不弹窗**，就在树里当场长出一个输入框，打名字回车就建好。
+                             下面原来那一整块（还没有分组 / 新建一个组 / 加 / 要加下级组…）整个删了。 -->
+                        <button id="btn-edit-groups" onclick="startNewGroup(null)" title="新建一个组" class="hidden text-[15px] leading-none font-bold text-slate-300 hover:text-black transition-colors">＋</button>
                     </div>
                     <div id="church-tree" class="text-[12px] space-y-0.5"></div>
 
-                    <div id="group-editor" class="hidden mt-5 pt-4 border-t border-slate-100">
-                        <div id="group-list" class="space-y-1 mb-3"></div>
-                        <!-- 2026-10-10 第二轮简化（Yuan：「不用下面这些复杂的『建立一个顶层组』，
-                             感觉好复杂，别的软件没有这样吧」）。
-                             原来这里有个「上级组」下拉——先在下拉里选父组、再打名字，
-                             确实别扭：别的软件都是**在那个组上点一下加**，不是先选再建。
-                             现在：下面这个框只建最外层的组；要加下级组，就在上面那个组自己那一行点「＋」。 -->
-                        <div class="flex gap-1.5">
-                            <input id="new-group-name" placeholder="新建一个组（中文 / 青年 …）" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-black transition-all">
-                            <button onclick="addGroup(this)" class="text-[11px] font-black bg-black text-white px-3 rounded-lg hover:bg-slate-800 transition-all flex-shrink-0">加</button>
-                        </div>
-                        <div class="text-[11px] text-slate-400 mt-2 leading-[1.7]">
-                            要加下级组，在上面那个组后面点「＋」。<span class="font-bold text-slate-500">删组不动任何人的档案。</span>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- 我邀请的人。放在人员下面、邀请码上面——Yuan 定的位置。
@@ -3311,7 +3300,6 @@
                 if (box) box.innerHTML =
                     '<div class="text-[11px] text-slate-400 leading-[1.9]">选好教会之后，这里会显示教会里的人。'
                   + '<br><span onclick="openChurchPicker()" class="underline cursor-pointer hover:text-black">去选教会</span></div>';
-                renderGroupEditor();
                 renderPendingBox();
                 return;
             }
@@ -3330,7 +3318,6 @@
             if (btn) btn.classList.toggle('hidden', !isPastorMe());
             openMyBranch();
             renderChurchTree();
-            renderGroupEditor();
             renderPendingBox();
         }
 
@@ -3560,13 +3547,13 @@
         function shepherdPickerHtml(m) {
             if (!能安排()) return '';
             return ' <span onclick="event.stopPropagation(); pickShepherdFor(\'' + m.id + '\')" '
-                 + 'class="text-[10px] font-bold text-slate-300 hover:text-black cursor-pointer">安排</span>';
+                 + 'class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">安排</span>';
         }
 
         function groupPickerHtml(p) {
             if (!能安排()) return '';
             return ' <span onclick="event.stopPropagation(); pickGroupForPastor(\'' + p.id + '\')" '
-                 + 'class="text-[10px] font-bold text-slate-300 hover:text-black cursor-pointer">编进组</span>';
+                 + 'class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">编进组</span>';
         }
 
         // 一位牧者编进哪个组：候选是**组**不是人，所以不用勾人面板，列一行行组让他点。
@@ -3598,7 +3585,7 @@
             if (!能安排()) return;
             const g = _groups.find(x => x.id === groupId);
             const 行 = [
-                ['加一个下级组',   'addSubGroup(\'' + groupId + '\'); closePeoplePicker();'],
+                ['加一个下级组',   'closePeoplePicker(); setTimeout(() => startNewGroup(\'' + groupId + '\'), 320);'],
                 ['把牧者编进来',   'closePeoplePicker(); setTimeout(() => openGroupMemberPicker(\'' + groupId + '\'), 320);']
             ].map(([t, js]) =>
                 '<div onclick="' + js + '" class="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">'
@@ -3633,7 +3620,7 @@
             let html = '';
 
             if (orphans.length) {
-                html += treeRow(0, 'ORPH', '还没安排家庭牧场', orphans.length, true,
+                html += treeRow(0, 'ORPH', '还没进组的羊', orphans.length, true,
                     'font-black text-amber-600');
                 if (_treeOpen.has('ORPH')) orphans.forEach(m =>
                     html += treeRow(1, 'M' + m.id, '', null, false, 'text-slate-400',
@@ -3641,7 +3628,7 @@
                         + shepherdPickerHtml(m)));
             }
             if (noGroup.length) {
-                html += treeRow(0, 'NG', '牧者还没编进组', noGroup.length, true,
+                html += treeRow(0, 'NG', '还没建组的牧者', noGroup.length, true,
                     'font-black text-amber-600');
                 if (_treeOpen.has('NG')) noGroup.forEach(p =>
                     html += treeRow(1, 'M' + p.id, '', null, false, 'text-slate-400',
@@ -3672,7 +3659,7 @@
                     escapeHtml(memberLabel(p) + ' 的家庭牧场')
                     + (能安排()
                         ? ' <span onclick="event.stopPropagation(); openFlockMemberPicker(\'' + p.id + '\')" '
-                          + 'class="text-[10px] font-bold text-slate-300 hover:text-black cursor-pointer">＋ 加人</span>'
+                          + 'class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">＋ 加人</span>'
                         : ''));
                 if (!_treeOpen.has(fKey)) return out;
                 if (!flock.length) {
@@ -3693,12 +3680,10 @@
                 const kids = childrenOf(g.id);
                 const here = pastors.filter(p => p.group_id === g.id);
                 out += treeRow(indent, gKey, '', groupCount(g), true,
-                    indent === 0 ? 'font-black text-slate-600' : 'text-slate-500',
-                    escapeHtml(g.name || '（没名字的组）')
-                    + (能安排()
-                        ? ' <span onclick="event.stopPropagation(); openGroupMemberPicker(\'' + g.id + '\')" '
-                          + 'class="text-[10px] font-bold text-slate-300 hover:text-black cursor-pointer">＋</span>'
-                        : ''));
+                    (indent === 0 ? 'font-black text-slate-600' : 'text-slate-500'),
+                    escapeHtml(g.name || '（没名字的组）') + groupRowActions(g));
+                // 正在这个组下面建新组 → 当场长出一个输入框
+                if (_newGroupUnder === g.id) out += inlineGroupInputHtml(indent + 1);
                 if (!_treeOpen.has(gKey)) return out;
 
                 if (!kids.length && !here.length) {
@@ -3714,70 +3699,80 @@
             }
 
             childrenOf(null).forEach(g => html += renderGroup(g, 0));
+            if (_newGroupUnder === null) html += inlineGroupInputHtml(0);
 
             box.innerHTML = html || '<div class="text-[11px] text-slate-300 italic">还没有人</div>';
         }
 
         // ── 分组编辑（只有牧者看得到入口）──────────────
 
-        function toggleGroupEditor() {
-            document.getElementById('group-editor').classList.toggle('hidden');
+        // ── 就地建组（2026-10-12）────────────────────────
+        //
+        // Yuan：「点击 ＋ 不弹出微信那样的框，只是直接弹出一个『中文＋』这样的框」。
+        // 也就是：**在你点的那个位置当场长出一个输入框**，打名字、回车，组就建好了。
+        //
+        // 为什么这样比弹窗好：建一个组只需要一样东西——名字。
+        // 为一个字段开一个居中的大弹窗，人的视线要先跳到屏幕中间、填完再跳回来；
+        // 就地长出来，眼睛不用离开那棵树。Apple 和微信在这种"只缺一个名字"的地方都这么做。
+        //
+        // 原来底下那一整块「还没有分组 / 新建一个组 / 加 / 要加下级组…」**整个删了**。
+        // 改名和删组挪到组自己那一行上，鼠标移上去才出现，平时不占地方。
+
+        // undefined = 没在建；null = 在建顶层组；<id> = 在这个组下面建
+        let _newGroupUnder;
+
+        function startNewGroup(parentId) {
+            _newGroupUnder = parentId;   // null 也是有效值，表示顶层
+            renderChurchTree();
+            setTimeout(() => {
+                const el = document.getElementById('inline-group-input');
+                if (el) el.focus();
+            }, 10);
         }
 
-        function renderGroupEditor() {
-            const box = document.getElementById('group-list');
-            if (!box) return;
-
-            const childrenOf = pid => _groups.filter(g => (g.parent_id || null) === pid);
-
-            // 列表：顶层组 + 缩进一级的子组
-            let rows = '';
-            childrenOf(null).forEach(g => {
-                rows += groupRow(g, 0);
-                childrenOf(g.id).forEach(c => rows += groupRow(c, 1));
-            });
-            box.innerHTML = rows || '<div class="text-[11px] text-slate-300 italic">还没有分组</div>';
+        function cancelNewGroup() {
+            _newGroupUnder = undefined;
+            renderChurchTree();
         }
 
-        // indent 0 = 顶层组，后面有「＋」可以在它下面加一个子组。
-        // 界面只做两层（Yuan 同意），所以子组那一行没有「＋」。
-        function groupRow(g, indent) {
-            return '<div class="flex items-center gap-2 text-[12px] text-slate-600" style="padding-left:'
-                 + (indent * 12) + 'px">'
-                 + '<span class="truncate">' + (indent ? '· ' : '') + escapeHtml(g.name || '（没名字）') + '</span>'
-                 + '<span class="ml-auto flex items-center gap-2 flex-shrink-0">'
-                 + (indent === 0
-                    ? '<button onclick="addSubGroup(\'' + g.id + '\')" title="在它下面加一个组" class="text-[13px] leading-none text-slate-300 hover:text-black transition-colors">＋</button>'
-                    : '')
-                 + '<button onclick="renameGroup(\'' + g.id + '\')" class="text-[11px] text-slate-300 hover:text-black transition-colors">改名</button>'
-                 + '<button onclick="deleteGroup(\'' + g.id + '\')" class="text-[11px] text-slate-300 hover:text-red-500 transition-colors">✕</button>'
-                 + '</span></div>';
-        }
+        // 回车 = 建；Esc = 取消；点到别处去 = 有字就建，没字就取消
+        // （打了一半点走就丢掉，比较气人，所以有字就当他是要建的。）
+        async function commitNewGroup(el) {
+            const name = (el && el.value || '').trim();
+            const parent = _newGroupUnder;
+            _newGroupUnder = undefined;
+            if (!name) { renderChurchTree(); return; }
 
-        async function addSubGroup(parentId) {
-            const name = prompt('在它下面加一个组，叫什么名字？');
-            if (!name || !name.trim()) return;
-            const { error } = await _db.rpc('create_group', { p_name: name.trim(), p_parent_id: parentId });
-            if (error) { showError('加不上', error); return; }
-            _treeOpen.add('G' + parentId);
+            const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: parent || null });
+            if (error) { showError('建不了', error); renderChurchTree(); return; }
+            if (parent) _treeOpen.add('G' + parent);
             loadChurchTree();
         }
 
-        // 建组、改名、删组都走数据库函数（create_group / rename_group / delete_group）。
-        // 以前是直接 insert/delete 表，权限只靠 RLS；改成函数之后，
-        // 「上级组必须是同一间教会的」「同一层不许重名」这些规矩在数据库里就卡住了。
-        async function addGroup(btn) {
-            const name = document.getElementById('new-group-name').value.trim();
-            if (!name) { alert('写一个组名'); return; }
-            if (!myChurchId()) { alert('先在左边选好你的教会，分组是按教会分的'); return; }
+        function inlineGroupInputHtml(indent) {
+            return '<div class="flex items-center gap-1.5 py-1" style="padding-left:' + (indent * 14) + 'px">'
+                 + '<span class="w-3"></span>'
+                 + '<input id="inline-group-input" placeholder="组名，回车确认" autocomplete="off" '
+                 + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();commitNewGroup(this);} '
+                 + 'if(event.key===\'Escape\'){cancelNewGroup();}" '
+                 + 'onblur="commitNewGroup(this)" '
+                 + 'class="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded px-2 py-0.5 text-[12px] outline-none focus:border-black transition-all">'
+                 + '</div>';
+        }
 
-            btn.disabled = true;
-            // 这个框只建最外层的组。下级组在组自己那一行点「＋」。
-            const { error } = await _db.rpc('create_group', { p_name: name, p_parent_id: null });
-            btn.disabled = false;
-            if (error) { showError('加不上', error); return; }
-            document.getElementById('new-group-name').value = '';
-            loadChurchTree();
+        // 组那一行右边：＋（加下级组）、改名、删。
+        //
+        // ⚠️ 一开始做成「鼠标移上去才出现」（group-hover），看着是干净，
+        //    但**手机和平板上根本没有 hover**，那三个就永远点不到。
+        //    改成一直显示，颜色压到很淡（slate-200），碰到才变黑。
+        //    干净不该靠"藏起来"换，靠轻。
+        function groupRowActions(g) {
+            if (!能安排()) return '';
+            return '<span class="ml-1 inline-flex items-center gap-1.5 align-middle">'
+                 + '<span onclick="event.stopPropagation(); startNewGroup(\'' + g.id + '\')" title="在它下面加一个组" class="text-[13px] leading-none font-bold text-slate-200 hover:text-black cursor-pointer">＋</span>'
+                 + '<span onclick="event.stopPropagation(); renameGroup(\'' + g.id + '\')" class="text-[10px] font-bold text-slate-200 hover:text-black cursor-pointer">改名</span>'
+                 + '<span onclick="event.stopPropagation(); deleteGroup(\'' + g.id + '\')" class="text-[10px] font-bold text-slate-200 hover:text-red-500 cursor-pointer">删</span>'
+                 + '</span>';
         }
 
         async function renameGroup(id) {
@@ -3796,7 +3791,7 @@
             const inIt = _members.filter(m => m.group_id === id).length;
             if (kids) { alert('「' + ((g && g.name) || '这个组') + '」下面还有 ' + kids + ' 个小组，先把它们删掉。'); return; }
             if (!confirm(inIt
-                ? '「' + ((g && g.name) || '这个组') + '」里还有 ' + inIt + ' 位牧者。\n删掉之后他们会变成"还没编进组"，档案不受影响。确定吗？'
+                ? '「' + ((g && g.name) || '这个组') + '」里还有 ' + inIt + ' 位牧者。\n删掉之后他们会回到「还没建组的牧者」，档案不受影响。确定吗？'
                 : '删掉「' + ((g && g.name) || '这个组') + '」？')) return;
             const { error } = await _db.rpc('delete_group', { p_group_id: id });
             if (error) { showError('删不掉', error); return; }
