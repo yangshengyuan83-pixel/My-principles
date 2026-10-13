@@ -1167,7 +1167,11 @@
         //    两处必须一致——改一处就要改另一处。
         //    （没法只留一份：界面要在拿到档案的当下就决定显不显示入口，
         //     不能为了这个再往服务器跑一趟。）
-        const PASTOR_ROLES = ['牧者', '牧夫', '职司', '牧师', '师母'];
+        // ⚠️ 这份名单同时存在三处：数据库 is_pastor()（说了算的那份）、这里、
+        //    App 的 profile_screen.dart `_isPastorRole`。三份不一致就会出现
+        //    「界面让你点，数据库报错」。改要三处一起改。
+        //    2026-10-13 加了「牧女」——选单里一直有它，三份名单却都漏了它。
+        const PASTOR_ROLES = ['牧者', '牧夫', '牧女', '职司', '牧师', '师母'];
         let _confirmTargetId = null;
 
         async function loadMyStatus() {
@@ -1190,7 +1194,7 @@
                 //    （PGRST201 "more than one relationship was found"），
                 //    _myProfile 变成 null → canWrite() 全员 false → **所有人都发布不了**。
                 //    2026-10-10 真的发生过一次：当天傍晚 6:01 的自动任务发布不了内容才发现。
-                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches!church_id(name, address, region, state, country), group_id, region, state, country, is_report_reviewer')
+                .select('status, is_admin, my_invite_code, real_name, nickname, role, church_name, church_id, churches!church_id(name, address, region, state, country), group_id, role_self_set_at, region, state, country, is_report_reviewer')
                 .eq('id', currentUserId()).maybeSingle();
             logReadError('我的档案', error);
             _myStatus = data ? data.status : null;
@@ -1551,9 +1555,21 @@
         function blockedByStatus() {
             if (!currentUserId()) { alert('登录之后才能这样做'); return true; }
             if (!canWrite()) {
-                alert('你的身份还在确认中，暂时还不能发布内容。\n\n'
-                    + '看、听、搜索、点赞、收藏都可以正常用。\n'
-                    + '有问题可以在左边的「建议箱」里说一声。');
+                // 2026-10-13：发不了内容现在有**三种**原因，不能再一律说「身份还在确认中」。
+                // 说错原因比不说更糟——人会按那句话去做，然后发现没用。
+                const P = _myProfile || {};
+                const 尾 = '\n\n看、听、搜索、点赞、收藏都可以正常用。'
+                         + '\n有问题可以在左边的「建议箱」里说一声。';
+                if (P.role === 'VIP') {
+                    alert('你现在的职分是 VIP，暂时不发布内容。'
+                        + '\n\n想发布的话，请你的牧者帮你改一下职分。' + 尾);
+                } else if (!P.role || P.role === 'none') {
+                    alert('你还没有选职分。' + (canSetOwnRole()
+                        ? '\n\n点左边自己名字前面的「选职分」就能选。'
+                        : '\n\n请你的牧者帮你定一个职分。') + 尾);
+                } else {
+                    alert('你的身份还在确认中，暂时还不能发布内容。' + 尾);
+                }
                 return true;
             }
             return false;
@@ -1725,27 +1741,54 @@
         // 谁能建教会：牧者 + 管理员。下面只决定按钮显不显示；
         // 真正的拦截在数据库（create_church 里查 can_create_church），绕过界面也建不了。
 
-        // 教会第一个人自己定职分。
+        // 自己选职分（2026-10-13 Yuan 定的规则，跟 App 和数据库三边一致）。
         //
-        // Yuan 2026-10-10：「第一个人只要选择了自己的身份，就拥有对应的权限。
-        // 但如果是选择错了，它还可以随时修改回去。先靠信任来做，发现问题再来改。」
+        // 「每个人都能自己选一次职分，选了就有对应的权利。
+        //   VIP 不能发布内容，其余都能。第二次要改，请本教会的牧者改。」
+        // 两种例外随时能改：**管理员**（Yuan 要切换职分测试）、
+        // **现在是牧者的人**（卸任不该还要去求别人）。
+        //
         // **不做 N 人确认、不做「自称」标记**——那套（3 人确认 + 证书）
-        // 在 2026-09-30 和 2026-10-10 被否过两次。
+        // 在 2026-09-30、2026-10-10、2026-10-13 被否过三次。
         //
-        // 为什么用 prompt 这么简陋：这是极少数人、一辈子用一两次的入口
-        // （一间教会只有第一个人会走到这里）。为它做一个正式的弹窗，
-        // 代码多一块、以后每次改界面都要照顾它，不值。
-        const ROLE_CHOICES = ['牧师', '师母', '牧者', '牧夫', '牧女', '职司', '仆人', 'VIP'];
+        // ⚠️ VIP 排**最上面**（Yuan 2026-10-13：「这是把 VIP 看得最重，是爱」）。
+        //    新来的人打开单子，第一眼看到属于他的那一项，不用往下翻过一串职称。
+        const ROLE_CHOICES = ['VIP', '仆人', '职司', '牧女', '牧夫', '牧者', '师母', '牧师'];
+
+        // 职分还能不能自己改
+        function canSetOwnRole() {
+            const P = _myProfile || {};
+            if (!P.church_id) return false;                 // 没教会，职分没有意义
+            if (P.is_admin) return true;                    // 管理员随时
+            if (PASTOR_ROLES.includes(P.role)) return true;  // 牧者随时（要能自己卸任）
+            return !P.role_self_set_at;                     // 其余：只能选一次
+        }
 
         async function openMyRolePicker() {
+            if (!canSetOwnRole()) {
+                alert('职分只能自己选一次。要改的话，请你的牧者帮你改。');
+                return;
+            }
             const now = (_myProfile && _myProfile.role && _myProfile.role !== 'none') ? _myProfile.role : '';
             const ans = prompt(
                 '你在教会的职分是？\n\n' + ROLE_CHOICES.map((r, i) => (i + 1) + '. ' + r).join('\n')
-              + '\n\n输入编号或直接写职分名。选错了随时可以再来改。', now);
+              + '\n\n输入编号或直接写职分名。'
+              + '\n\n⚠️ 只能自己选一次，之后要改请你的牧者帮你改。'
+              + '\n选「VIP」表示你是刚来的新朋友——可以读、可以听，暂时不发布内容。', now);
             if (ans === null) return;
             const v = String(ans).trim();
             if (!v) return;
             const role = /^[1-8]$/.test(v) ? ROLE_CHOICES[parseInt(v, 10) - 1] : v;
+
+            // 对大多数人这一步不可逆，值得多问一句。管理员和牧者可以随时再改，就不拦了。
+            const P = _myProfile || {};
+            const 随时能改 = P.is_admin || PASTOR_ROLES.includes(P.role);
+            if (!随时能改) {
+                const 话 = role === 'VIP'
+                    ? '确定选「VIP」？\n\n选了之后不能自己改。VIP 可以读、可以听，暂时发布不了内容——要发布的话，请你的牧者帮你改职分。'
+                    : '确定选「' + role + '」？\n\n选了之后不能自己改，要改请你的牧者帮你改。';
+                if (!confirm(话)) return;
+            }
 
             const { error } = await _db.rpc('set_my_own_role', { p_role: role });
             if (error) { showError('设不了', error); return; }
@@ -3245,14 +3288,13 @@
         // 写「none 元」比不写还糟，那是把数据库的内部值直接怼到人脸上。
         // 自己名字前面的职分做成可以点的（Yuan 2026-10-10：
         // 「点击这里的『牧者』就可出现预选框，不用放到个人资料里，麻烦」）。
-        // 只有自己、而且是「自己从网上进来的人」（没有邀请人）才可点——
-        // 被邀请进来的人职分由牧者确认，自己改不了，数据库也会拒。
+        // 自己名字前面的职分做成可以点的。
+        // 2026-10-13 条件改了：不再是「没有邀请人才行」，而是 canSetOwnRole()——
+        // 每个人都能选一次，牧者和管理员随时能改。三边（数据库/网页/App）同一条规则。
         // 还没选职分的显示「选职分」，否则一个没有职分的人名字前面什么都没有，没地方点。
         function memberLabelHtml(m) {
-            const P = _myProfile || {};
             const 是我 = m && m.id === currentUserId();
-            const 能自己改 = 是我 && !P.inviter_id && !!P.church_id;
-            if (!能自己改) return escapeHtml(memberLabel(m));
+            if (!是我 || !canSetOwnRole()) return escapeHtml(memberLabel(m));
             const r = (!m.role || m.role === 'none') ? '选职分' : m.role;
             return '<span onclick="event.stopPropagation(); openMyRolePicker()" '
                  + 'class="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-black">'
@@ -3777,8 +3819,33 @@
             if (!m) return;
             const 项目 = [{ 文字: '换一个组', 动作: "pickGroupForPerson('" + userId + "')" }];
             if (m.group_id) 项目.push({ 文字: '移出这个组', 动作: "removeFromGroup('" + userId + "')" });
+            // 2026-10-13：「第二次要改职分，请本教会的牧者改」——
+            // 规则定了，界面上得真有这个地方，否则那条规则等于不存在。
+            if (isPastorMe() || (_myProfile && _myProfile.is_admin)) {
+                项目.push({ 文字: '改他的职分', 动作: "pickRoleForPerson('" + userId + "')" });
+            }
             openActionSheet(memberName(m), 项目,
                 m.group_id ? '移出之后他会回到「还没进组的羊」，档案和发表过的内容不受影响。' : '');
+        }
+
+        // 牧者改别人的职分。改完发言权跟着变——
+        // VIP 改成仆人，他立刻能发布；仆人改成 VIP，他就发不了了。
+        // 这一点在菜单的尾注里写出来，不要让牧者在不知情的情况下关掉别人的发言权。
+        function pickRoleForPerson(userId) {
+            const m = _members.find(x => x.id === userId);
+            if (!m) return;
+            openActionSheet('改「' + memberName(m) + '」的职分',
+                ROLE_CHOICES.map(r => ({
+                    文字: r + (r === (m.role || '') ? '　（现在就是）' : ''),
+                    动作: "setMemberRoleNow('" + userId + "', '" + r + "')"
+                })),
+                'VIP 不能发布内容，其余职分都能。改了之后立刻生效。');
+        }
+
+        async function setMemberRoleNow(userId, role) {
+            const { error } = await _db.rpc('set_member_role', { p_user_id: userId, p_role: role });
+            if (error) { showError('改不了', error); return; }
+            loadChurchTree();
         }
 
         // 换组：只列**没有子组**的组（有子组的组不收人）
