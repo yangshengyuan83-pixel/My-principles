@@ -3341,6 +3341,21 @@
                  + (m.is_admin ? '（管理员）' : '');
         }
 
+        // 模糊搜名字（2026-10-18）。**和 App 的 fuzzyScore()（church_tree.dart）同一个算法**，改一处要改两处。
+        // 按字比：整串对上最高分；对上一部分也显示，对上越多越靠前；一个字都没对上不显示。
+        // 三个字以上的输入，至少要对上一半。空格和标点不算。
+        function fuzzyScore(query, name) {
+            const q = String(query || '').toLowerCase();
+            const n = String(name || '').toLowerCase();
+            if (!q) return 1;
+            if (n.includes(q)) return 1000 + q.length;
+            const chars = [...new Set([...q].filter(c => c.trim() && !/[\p{P}\p{S}]/u.test(c)))];
+            if (!chars.length) return 0;
+            const hit = chars.filter(c => n.includes(c)).length;
+            if (chars.length >= 3 && hit * 2 < chars.length) return 0;
+            return hit;
+        }
+
         function memberLabel(m) {
             const r = m && m.role;
             const shown = (!r || r === 'none') ? '' : r + ' ';
@@ -3398,7 +3413,8 @@
 
             // 2026-10-18：原来只看 isPastorMe()，管理员看不到「＋」，
             // 但组的「…」用的是 能安排()（牧者或管理员）——两处不一致，统一成 能安排()。
-            if (btn) btn.classList.toggle('hidden', !能安排());
+            // 2026-10-18 再改：标题旁的「＋」不要了（Yuan），新建组只剩树最下面那一行。
+            if (btn) btn.classList.add('hidden');
             openMyBranch();
             renderChurchTree();
             renderPendingBox();
@@ -3545,10 +3561,16 @@
         }
 
         function renderPeoplePicker() {
-            const q    = (document.getElementById('people-picker-search').value || '').trim().toLowerCase();
+            const q    = (document.getElementById('people-picker-search').value || '').trim();
             const list = document.getElementById('people-picker-list');
             const empty= document.getElementById('people-picker-empty');
-            const 显示 = _pp.候选.filter(m => !q || memberLabel(m).toLowerCase().includes(q));
+            // 2026-10-18 改成模糊搜（Yuan：「不知道具体的名字，或是打错，就不能显示到对的人」）。
+            // 对上越多越靠前；同分保持原来的顺序（分段的顺序是调用方定的，不能乱）。
+            const 显示 = !q ? _pp.候选 : _pp.候选
+                .map((m, i) => ({ m, i, 分: fuzzyScore(q, memberLabel(m)) }))
+                .filter(x => x.分 > 0)
+                .sort((a, b) => b.分 - a.分 || a.i - b.i)
+                .map(x => x.m);
 
             empty.classList.toggle('hidden', !!_pp.候选.length);
 
@@ -3713,10 +3735,15 @@
             // 一个组都没有的时候给一个看得见的起点（2026-10-18）。Yuan：「现在一个组都没有，
             // 只有最上面一个还没进去的人，没有地方可以点击组底下『添加人员』」——
             // 「添加人员」挂在组上，没有组就没有入口；标题旁那个小「＋」看不出就是起点。
-            if (!_groups.length && 能安排() && _newGroupUnder !== null) {
-                html += '<div onclick="startNewGroup(null)" class="mt-1 px-3 py-2 rounded-lg border border-slate-200 '
-                      + 'text-[12px] font-bold text-black cursor-pointer hover:bg-slate-50">＋ 建第一个组'
-                      + '<span class="ml-2 font-normal text-[10px] text-slate-400">建好之后，在组的「…」里添加人员</span></div>';
+            //
+            // 接着 Yuan：「最右上方的＋可以去掉了」。⚠️ 去掉之后，有了第一个组就再也建不了
+            // 第二个顶层组——所以这一行**一直都在**：没组叫「建第一个组」，有了叫「新建一个组」。
+            if (能安排() && _newGroupUnder !== null) {
+                html += '<div onclick="startNewGroup(null)" class="mt-2 px-3 py-2 rounded-lg border border-slate-200 '
+                      + 'text-[12px] font-bold text-black cursor-pointer hover:bg-slate-50">＋ '
+                      + (_groups.length ? '新建一个组' : '建第一个组'
+                          + '<span class="ml-2 font-normal text-[10px] text-slate-400">建好之后，在组的「…」里添加人员</span>')
+                      + '</div>';
             }
             if (_newGroupUnder === null) html += inlineGroupInputHtml(0, null);
 
