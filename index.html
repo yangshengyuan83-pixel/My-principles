@@ -3396,7 +3396,9 @@
             _members = mRes.data || [];
             _groups  = gRes.data || [];
 
-            if (btn) btn.classList.toggle('hidden', !isPastorMe());
+            // 2026-10-18：原来只看 isPastorMe()，管理员看不到「＋」，
+            // 但组的「…」用的是 能安排()（牧者或管理员）——两处不一致，统一成 能安排()。
+            if (btn) btn.classList.toggle('hidden', !能安排());
             openMyBranch();
             renderChurchTree();
             renderPendingBox();
@@ -3441,7 +3443,7 @@
             // 现在展开的是**我在的那个组、以及它上面每一级**。
             if (!me.group_id) {
                 // 还没进组 → 展开他会出现在的那个黄桶
-                _treeOpen.add(PASTOR_ROLES.includes(me.role) ? 'NG' : 'ORPH');
+                _treeOpen.add('ORPH');   // 2026-10-18 两桶合成一栏，只剩 ORPH
                 return;
             }
             let g = _groups.find(x => x.id === me.group_id);
@@ -3608,7 +3610,7 @@
         // 现在一棵树只有组，**一个入口就够了**。
         //
         // 面板分三段（Yuan 2026-10-12 要的）：
-        //   还没进组的羊 / 还没建组的牧者 / 从别的组里选
+        //   已经在这个组里 / 还没进组的 / 从别的组里选（2026-10-18 前两桶合成一段）
         // 已经在这个组里的人**预先打勾**，取消勾选就是把他移出去。
 
         function openGroupMemberPicker(groupId) {
@@ -3617,14 +3619,14 @@
 
             const 带段 = (arr, 段) => arr.map(m => Object.assign({}, m, { _段: 段 }));
             const 在这组 = _members.filter(m => m.group_id === groupId);
-            const 羊     = _members.filter(m => !m.group_id && !PASTOR_ROLES.includes(m.role));
-            const 牧者   = _members.filter(m => !m.group_id &&  PASTOR_ROLES.includes(m.role));
+            // 2026-10-18 Yuan：「已经没有还没建组的牧者」——一棵树只有组之后，
+            // 牧者没进组就是「没进组的人」。两段合成一段，App 也一样。
+            const 没进组 = _members.filter(m => !m.group_id);
             const 别的组 = _members.filter(m => m.group_id && m.group_id !== groupId);
 
             const 候选 = [].concat(
                 带段(在这组, '已经在「' + 组名 + '」里'),
-                带段(羊,     '还没进组的羊'),
-                带段(牧者,   '还没建组的牧者'),
+                带段(没进组, '还没进组的'),
                 带段(别的组, '从别的组里选')
             );
 
@@ -3695,23 +3697,27 @@
                 return out;
             }
 
-            // 还没进组的人。分两桶是 Yuan 2026-10-12 定的（不合并）。
-            // **不能藏起来**：藏起来的话一个人在系统里等于不存在，没人会想起要安排他。
-            const 羊   = _members.filter(m => !m.group_id && !PASTOR_ROLES.includes(m.role));
-            const 牧者 = _members.filter(m => !m.group_id &&  PASTOR_ROLES.includes(m.role));
+            // 还没进组的人。**不能藏起来**：藏起来的话一个人在系统里等于不存在，没人会想起要安排他。
+            // 2026-10-18 改：原来分两桶（还没进组的羊 / 还没建组的牧者，10-12 定的），
+            // Yuan：「已经没有还没建组的牧者」——合成一栏。牧者看名字前的职分就认得出来。
+            const 没进组 = _members.filter(m => !m.group_id);
 
             let html = '';
-            if (羊.length) {
-                html += treeRow(0, 'ORPH', '还没进组的羊', 羊.length, true, 'font-black text-amber-600');
-                if (_treeOpen.has('ORPH')) 羊.forEach(m => html += 人行(m, 1));
-            }
-            if (牧者.length) {
-                html += treeRow(0, 'NG', '还没建组的牧者', 牧者.length, true, 'font-black text-amber-600');
-                if (_treeOpen.has('NG')) 牧者.forEach(m => html += 人行(m, 1));
+            if (没进组.length) {
+                html += treeRow(0, 'ORPH', '还没进组的', 没进组.length, true, 'font-black text-amber-600');
+                if (_treeOpen.has('ORPH')) 没进组.forEach(m => html += 人行(m, 1));
             }
             if (html) html += '<div class="h-2"></div>';
 
             childrenOf(null).forEach(g => html += renderGroup(g, 0));
+            // 一个组都没有的时候给一个看得见的起点（2026-10-18）。Yuan：「现在一个组都没有，
+            // 只有最上面一个还没进去的人，没有地方可以点击组底下『添加人员』」——
+            // 「添加人员」挂在组上，没有组就没有入口；标题旁那个小「＋」看不出就是起点。
+            if (!_groups.length && 能安排() && _newGroupUnder !== null) {
+                html += '<div onclick="startNewGroup(null)" class="mt-1 px-3 py-2 rounded-lg border border-slate-200 '
+                      + 'text-[12px] font-bold text-black cursor-pointer hover:bg-slate-50">＋ 建第一个组'
+                      + '<span class="ml-2 font-normal text-[10px] text-slate-400">建好之后，在组的「…」里添加人员</span></div>';
+            }
             if (_newGroupUnder === null) html += inlineGroupInputHtml(0, null);
 
             // ⚠️ 这句不能放在函数最前面做「没人就 return」的早退——
@@ -3864,7 +3870,7 @@
                 项目.push({ 文字: '改他的职分', 动作: "pickRoleForPerson('" + userId + "')" });
             }
             openActionSheet(memberName(m), 项目,
-                m.group_id ? '移出之后他会回到「还没进组的羊」，档案和发表过的内容不受影响。' : '');
+                m.group_id ? '移出之后他会回到「还没进组的」，档案和发表过的内容不受影响。' : '');
         }
 
         // 牧者改别人的职分。改完发言权跟着变——
