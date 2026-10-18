@@ -620,11 +620,30 @@
 
             <!-- 标签页 -->
             <div class="flex gap-6 border-b border-slate-100 mb-4">
-                <button id="sg-tab-mine" onclick="switchSuggestionTab('mine')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all">我提的</button>
-                <button id="sg-tab-public" onclick="switchSuggestionTab('public')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all">大家提的</button>
+                <!-- 2026-10-19 Yuan：「大家提的放到左边，默认打开大家提的」 -->
+                <button id="sg-tab-public" onclick="switchSuggestionTab('public')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-black text-black transition-all">大家提的</button>
+                <button id="sg-tab-mine" onclick="switchSuggestionTab('mine')" class="text-[11px] font-black tracking-widest uppercase pb-3 -mb-px border-b-2 border-transparent text-slate-400 hover:text-black transition-all">我提的</button>
             </div>
 
             <div id="sg-list" class="custom-scroll overflow-y-auto flex-1 space-y-3 pr-2"></div>
+        </div>
+    </div>
+
+    <!-- ================= 建议箱的「讨论」（2026-10-19） =================
+         Yuan：「谁都可以回复，因为需要大家讨论，定了后再决定做不做。叫讨论，不用回复。」
+         谁能看/能说、谁能改「做不做」都拦在数据库（18b_建议箱讨论_建表.sql）。 -->
+    <div id="sg-thread-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[950] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="sg-thread-box" class="modal-box bg-white w-full max-w-2xl rounded-3xl shadow-2xl px-9 py-7 scale-95 border overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-black text-black">讨论</h2>
+                <button onclick="closeSgThread()" class="text-slate-300 hover:text-black font-black text-xl transition-colors">✕</button>
+            </div>
+            <div id="sg-thread-head" class="mb-4"></div>
+            <div id="sg-thread-list" class="custom-scroll overflow-y-auto flex-1 space-y-4 pr-2 border-t border-slate-100 pt-4"></div>
+            <div class="flex gap-3 mt-4 pt-4 border-t border-slate-100">
+                <textarea id="sg-thread-input" placeholder="说说你的看法…" class="flex-1 bg-slate-50 p-3 rounded-xl outline-none text-[14px] text-slate-700 min-h-[48px] max-h-[140px] resize-none border border-slate-200 focus:border-slate-400"></textarea>
+                <button id="btn-sg-thread-send" onclick="sendSgComment(this)" class="btn-black bg-black text-white px-6 text-[12px] font-black rounded-xl self-end py-3">发送</button>
+            </div>
         </div>
     </div>
 
@@ -4321,7 +4340,7 @@
         // - 状态由 Yuan 在后台改，改了之后提交人能看到。自动通知还没做（第二期）。
 
         let _sgType = 'suggestion';   // 当前选的提交类型
-        let _sgTab  = 'mine';         // 当前看的标签页
+        let _sgTab  = 'public';       // 当前看的标签页（2026-10-19 默认改成「大家提的」）
         let _sgVotedIds = new Set();  // 我附议过哪些
 
         const SG_STATUS = {
@@ -4334,7 +4353,7 @@
 
         // focusId：从侧边栏点进来时，传具体那一条的 id，打开后滚过去并高亮一下，
         // 否则用户点了一条却落在列表顶部，不知道自己点的是哪个
-        function openSuggestionBox(tab = 'mine', focusId = null) {
+        function openSuggestionBox(tab = 'public', focusId = null) {
             document.getElementById('suggestion-modal').classList.remove('hidden');
             setTimeout(() => {
                 document.getElementById('suggestion-modal').classList.remove('opacity-0');
@@ -4428,9 +4447,12 @@
             const me = currentUserId();
             let query = _db.from('user_tasks').select('*').order('created_at', { ascending: false });
             // 「大家提的」只看公开的建议，不含问题反馈；「我提的」两类都看
+            // 2026-10-19：管理员在「大家提的」里也看得到别人提的问题（要能讨论）
             query = _sgTab === 'mine'
                 ? query.eq('user_id', me)
-                : query.eq('is_public', true).eq('type', 'suggestion');
+                : (_myProfile && _myProfile.is_admin)
+                    ? query.or('and(is_public.eq.true,type.eq.suggestion),type.eq.problem')
+                    : query.eq('is_public', true).eq('type', 'suggestion');
 
             const { data } = await query;
             const rows = data || [];
@@ -4444,6 +4466,13 @@
                 if (v.user_id === me) _sgVotedIds.add(v.task_id);
             });
 
+            // 讨论条数 + 我有哪些新讨论（2026-10-19）
+            const talkCount = {};
+            const { data: cs } = await _db.from('suggestion_comments').select('task_id');
+            (cs || []).forEach(c => { talkCount[c.task_id] = (talkCount[c.task_id] || 0) + 1; });
+            await refreshSgUpdates();
+            _sgRows = rows;
+
             document.getElementById('sg-list').innerHTML = rows.map(r => {
                 const st = SG_STATUS[r.status] || SG_STATUS.received;
                 const n = voteCount[r.id] || 0;
@@ -4456,7 +4485,7 @@
                             ${r.type === 'problem' ? '问题' : '建议'}
                         </span>
                         <span class="text-[9px] font-black px-2 py-1 rounded ${st.cls}">${st.label}</span>
-                        ${!r.is_public ? '<span class="text-[9px] text-slate-300">仅自己可见</span>' : ''}
+                        ${!r.is_public ? '<span class="text-[9px] text-slate-300">' + (isMine ? '仅自己可见' : '只有提的人和管理员看得到') + '</span>' : ''}
                         <span class="text-[10px] text-slate-300 ml-auto">${formatSimpleDate(r.created_at)}</span>
                     </div>
                     <div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(r.content)}</div>
@@ -4466,13 +4495,126 @@
                             <button onclick="toggleVote('${r.id}')" class="text-[11px] font-bold transition-colors ${voted ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}">
                                 ${voted ? '✓ 已附议' : '+ 我也想要'} ${n > 0 ? n : ''}
                             </button>` : ''}
-                        ${isMine ? `<button onclick="deleteSuggestion('${r.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors ml-auto">删除</button>` : ''}
+                        ${(() => {
+                            const fresh = _sgUpdates[r.id] || 0, talk = talkCount[r.id] || 0;
+                            return `<button onclick="openSgThread('${r.id}')" class="text-[11px] font-bold ml-auto transition-colors ${fresh ? 'text-black' : 'text-slate-400 hover:text-black'}">`
+                                 + (fresh ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500 mr-1 align-middle"></span>' + fresh + ' 条新讨论'
+                                          : (talk ? '讨论 ' + talk : '讨论'))
+                                 + '</button>';
+                        })()}
+                        ${isMine ? `<button onclick="deleteSuggestion('${r.id}')" class="text-[11px] font-bold text-slate-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>`;
             }).join('') || `<div class="text-[12px] text-slate-400 italic py-8 text-center">${_sgTab === 'mine' ? '你还没有提过' : '还没有人提过建议'}</div>`;
 
             if (focusId) setTimeout(() => focusSuggestionCard(focusId), 120);
             refreshSidebarSuggestions();
+        }
+
+        // ================= 建议箱的「讨论」（2026-10-19） =================
+        // 和 App 的 suggestion_thread_screen.dart 同一套规矩：
+        //   · 公开的建议谁都能说；问题只有提的人和管理员
+        //   · 「做不做」管理员和牧者改（能安排()）
+        //   · 新讨论 = my_suggestion_updates()（提的人 + 说过话的人，别人在我上次看过之后说的）
+        let _sgRows = [];
+        let _sgUpdates = {};
+        let _sgThreadTask = null;
+
+        async function refreshSgUpdates() {
+            if (!currentUserId()) { _sgUpdates = {}; return; }
+            const { data, error } = await _db.rpc('my_suggestion_updates');
+            logReadError('新讨论', error);
+            _sgUpdates = {};
+            (data || []).forEach(r => { if (r.new_count > 0) _sgUpdates[r.task_id] = r.new_count; });
+        }
+
+        function sgWho(c, task) {
+            const r = (c.role && c.role !== 'none') ? c.role + ' ' : '';
+            return r + memberName({ real_name: c.name }) + (c.is_admin ? '（管理员）' : '')
+                 + (String(c.user_id) === String(task.user_id) ? ' · 提建议的人' : '');
+        }
+
+        async function openSgThread(id) {
+            const t = _sgRows.find(x => String(x.id) === String(id));
+            if (!t) return;
+            _sgThreadTask = t;
+            const m = document.getElementById('sg-thread-modal');
+            m.classList.remove('hidden');
+            setTimeout(() => { m.classList.remove('opacity-0'); document.getElementById('sg-thread-box').classList.remove('scale-95'); }, 10);
+            _db.rpc('mark_suggestion_read', { p_task: String(id) });   // 打开 = 看过了
+            delete _sgUpdates[id];
+            await renderSgThread();
+        }
+
+        function closeSgThread() {
+            document.getElementById('sg-thread-modal').classList.add('opacity-0');
+            document.getElementById('sg-thread-box').classList.add('scale-95');
+            setTimeout(() => document.getElementById('sg-thread-modal').classList.add('hidden'), 300);
+            refreshSuggestions();
+        }
+
+        async function renderSgThread() {
+            const t = _sgThreadTask; if (!t) return;
+            const st = SG_STATUS[t.status] || SG_STATUS.received;
+            const 能改 = 能安排();
+            document.getElementById('sg-thread-head').innerHTML =
+                '<div class="flex items-center gap-2 mb-2">'
+              + '<span class="text-[9px] font-black px-2 py-1 rounded ' + (t.type === 'problem' ? 'bg-red-50 text-red-500' : 'bg-purple-50 text-purple-500') + '">' + (t.type === 'problem' ? '问题' : '建议') + '</span>'
+              + (能改
+                  ? '<select onchange="setSgStatus(this.value)" class="text-[11px] font-black border border-slate-200 rounded px-2 py-1 bg-white">'
+                    + Object.keys(SG_STATUS).map(k => '<option value="' + k + '"' + (k === t.status ? ' selected' : '') + '>' + SG_STATUS[k].label + '</option>').join('')
+                    + '</select><span class="text-[10px] text-slate-400">做不做，大家讨论后由管理员或牧者定</span>'
+                  : '<span class="text-[9px] font-black px-2 py-1 rounded ' + st.cls + '">' + st.label + '</span>')
+              + '</div>'
+              + '<div class="text-[15px] font-bold text-slate-800 leading-relaxed whitespace-pre-wrap">' + escapeHtml(t.content) + '</div>';
+
+            const box = document.getElementById('sg-thread-list');
+            const { data, error } = await _db.rpc('suggestion_thread', { p_task: String(t.id) });
+            if (error) { logReadError('讨论', error); box.innerHTML = '<div class="text-[12px] text-red-400">读不出来：' + escapeHtml(describeError(error)) + '</div>'; return; }
+            const me = currentUserId(), admin = !!(_myProfile && _myProfile.is_admin);
+            box.innerHTML = (data || []).map(c =>
+                '<div>'
+              + '<div class="flex items-baseline gap-2"><span class="text-[12px] font-black text-slate-800">' + escapeHtml(sgWho(c, t)) + '</span>'
+              + '<span class="text-[10px] text-slate-400">' + escapeHtml(formatSimpleDate(c.created_at)) + '</span>'
+              + ((String(c.user_id) === String(me) || admin)
+                  ? '<button onclick="deleteSgComment(this, ' + c.id + ')" class="ml-auto text-[10px] text-slate-300 hover:text-red-500">删</button>' : '')
+              + '</div>'
+              + '<div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap mt-1">' + escapeHtml(c.content) + '</div>'
+              + '</div>').join('')
+              || '<div class="text-[12px] text-slate-400 italic py-6 text-center">还没有人讨论。你怎么看？</div>';
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function sendSgComment(btn) {
+            const t = _sgThreadTask; if (!t) return;
+            if (!currentUserId()) { alert('请先登录'); return; }
+            const el = document.getElementById('sg-thread-input');
+            const content = el.value.trim();
+            if (!content) return;
+            btn.disabled = true;
+            const { error } = await _db.from('suggestion_comments').insert([{ task_id: t.id, content }]);
+            btn.disabled = false;
+            if (error) { showError('没发出去', error); return; }
+            el.value = '';
+            _db.rpc('mark_suggestion_read', { p_task: String(t.id) });
+            renderSgThread();
+        }
+
+        // 删除不用 confirm()（会被浏览器拦）：第一次点变红字，再点一次才删
+        async function deleteSgComment(btn, id) {
+            if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.innerText = '再点一次删除'; btn.classList.add('text-red-500'); return; }
+            const { data, error } = await _db.from('suggestion_comments').delete().eq('id', id).select('id');
+            if (error) { showError('没删掉', error); return; }
+            if (!data || !data.length) { alert('没删掉：只能删自己说的'); return; }
+            renderSgThread();
+        }
+
+        async function setSgStatus(status) {
+            const t = _sgThreadTask; if (!t) return;
+            const { error } = await _db.rpc('set_suggestion_status', { p_task: String(t.id), p_status: status });
+            if (error) { showError('改不了', error); renderSgThread(); return; }
+            t.status = status;
+            renderSgThread();
         }
 
         // 附议 / 取消附议。唯一约束保证同一个人对同一条只能有一条记录
@@ -4507,7 +4649,11 @@
             const rows = data || [];
             // 侧边栏只有 288px，分成两个小节会浪费掉两行标题的空间。
             // 改成每条前面带一个类型点：紫色=建议，红色=问题。一眼能分辨，不占地方。
-            document.getElementById('sidebar-todo-list').innerHTML = rows.map(r => {
+            // 有新讨论时，侧边栏最上面一行提醒（2026-10-19，App 上是「我」的小红点）
+            await refreshSgUpdates();
+            const 新 = Object.values(_sgUpdates).reduce((a, b) => a + b, 0);
+            const 提醒 = 新 ? '<div onclick="openSuggestionBox(\'public\')" class="mb-3 text-[11px] font-black text-black cursor-pointer"><span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 align-middle"></span>' + 新 + ' 条新讨论</div>' : '';
+            document.getElementById('sidebar-todo-list').innerHTML = 提醒 + rows.map(r => {
                 const st = SG_STATUS[r.status] || SG_STATUS.received;
                 const dot = r.type === 'problem' ? 'bg-red-400' : 'bg-purple-400';
                 return `<div class="mb-3 cursor-pointer group" onclick="openSuggestionBox('mine', '${r.id}')">
