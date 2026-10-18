@@ -487,8 +487,42 @@
                 <button id="btn-new-cornerstone" onclick="openCornerstoneModal()" class="hidden text-[10px] font-bold text-purple-500 hover:text-purple-700">+ 写一条说明</button>
             </div>
             <div id="sidebar-cornerstones-list" class="space-y-4"></div>
+
+            <!-- 「App 消息」（2026-10-18）：只有管理员看得到。
+                 这里写的东西会出现在**手机 App** 经文页最上面的横幅、和「我 → 消息」里。
+                 网页版自己不显示消息（Yuan 定：先只做 App）。
+                 真正的拦截在数据库 RLS（18a_App消息_建表.sql），这里只管显不显示。 -->
+            <div id="admin-announcements" class="hidden pt-6 mt-6 border-t border-slate-200">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-[10px] font-black text-slate-400 tracking-widest uppercase">App 消息</h3>
+                    <button onclick="openAnnouncementModal()" class="text-[10px] font-bold text-purple-500 hover:text-purple-700">+ 发一条</button>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-relaxed mb-4">只有你看得到这一栏。发出去的会出现在手机 App 经文页最上面，所有人都收到。</p>
+                <div id="admin-announcements-list" class="space-y-3"></div>
+            </div>
         </div>
     </aside>
+
+    <!-- ================= App 消息：写 / 改 / 删（只有管理员） ================= -->
+    <div id="announcement-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[900] hidden opacity-0 flex items-center justify-center p-8">
+        <div id="announcement-modal-box" class="modal-box bg-white w-full max-w-2xl rounded-3xl shadow-2xl px-10 py-8 scale-95 border overflow-hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black tracking-tighter text-black" id="announcement-modal-title">发一条消息</h2>
+                <button onclick="closeAnnouncementModal()" class="text-slate-300 hover:text-black font-black text-xl transition-colors">✕</button>
+            </div>
+            <input type="hidden" id="announcement-id">
+            <input id="announcement-title" maxlength="40" placeholder="标题（会显示在横幅上，一行，越短越好）" class="w-full bg-transparent outline-none text-xl font-black tracking-tighter mb-1 text-black placeholder-slate-300">
+            <div class="text-[10px] text-slate-400 mb-4">横幅只显示这一行。例：「1.0.2 更新了，请帮忙测三件事」</div>
+            <textarea id="announcement-body" placeholder="正文（点开横幅后看到的全文）" class="w-full bg-slate-50 p-5 rounded-2xl outline-none text-[15px] text-slate-600 min-h-[180px] resize-none leading-relaxed mb-4 border border-slate-100 focus:border-slate-300 transition-colors"></textarea>
+            <div class="flex justify-between items-center">
+                <button id="btn-delete-announcement" onclick="deleteAnnouncement(this)" class="text-xs font-black tracking-widest text-red-400 hover:text-red-600 hidden">删除这条</button>
+                <div class="flex justify-end gap-6 items-center flex-1">
+                    <button onclick="closeAnnouncementModal()" class="text-xs font-black tracking-widest text-slate-400 hover:text-black">取消</button>
+                    <button onclick="saveAnnouncement(this)" class="btn-black bg-black text-white px-10 py-3 text-xs shadow-lg">发出</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ================= 活动聚合弹窗 ================= -->
     <div id="activity-modal" class="modal-overlay fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[1600] hidden opacity-0 flex items-center justify-center p-8">
@@ -1217,6 +1251,11 @@
             // 别人照样可以在控制台里直接调 openCornerstoneModal()。
             const btn = document.getElementById('btn-new-cornerstone');
             if (btn) btn.classList.toggle('hidden', !_myIsAdmin);
+
+            // 「App 消息」那一栏，同样只给管理员（2026-10-18）
+            const annBox = document.getElementById('admin-announcements');
+            if (annBox) annBox.classList.toggle('hidden', !_myIsAdmin);
+            if (_myIsAdmin) refreshAnnouncements();
 
             // 举报审议入口。平时连这个入口都不显示——
             // 不是牧者的人，不该知道有这么一个地方。
@@ -4539,6 +4578,82 @@
             const { error } = await _db.from('project_cornerstones').delete().eq('id', id);
             if (error) { alert('删除失败：' + error.message); return; }
             closeCornerstoneModal(); refreshCornerstones();
+        }
+
+        // ================= App 消息（2026-10-18，只有管理员） =================
+        // 表：app_announcements（18a_App消息_建表.sql）。所有人能读，只有管理员能写——
+        // 拦截在数据库，这里的 isAdmin() 只是为了让别人点不到、也给一句解释。
+        let _announcements = [];
+
+        async function refreshAnnouncements() {
+            const { data, error } = await _db.from('app_announcements')
+                .select('id,title,body,created_at').order('id', { ascending: false }).limit(50);
+            logReadError('App 消息', error);
+            _announcements = data || [];
+            const box = document.getElementById('admin-announcements-list');
+            if (!box) return;
+            box.innerHTML = _announcements.map(a => `
+                <div onclick="openAnnouncementModal(${a.id})" class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer">
+                    <div class="text-[10px] text-slate-400 mb-1">${escapeHtml(new Date(a.created_at).toLocaleDateString('zh-CN'))}</div>
+                    <strong class="text-xs font-black text-slate-800 block truncate">${escapeHtml(a.title)}</strong>
+                    <p class="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mt-1">${escapeHtml(a.body || '')}</p>
+                </div>
+            `).join('') || '<div class="text-[10px] text-slate-400 italic">还没发过消息。</div>';
+        }
+
+        function openAnnouncementModal(id = null) {
+            if (!isAdmin()) return;
+            const a = id ? _announcements.find(x => x.id === id) : null;
+            document.getElementById('announcement-id').value = a ? a.id : '';
+            document.getElementById('announcement-title').value = a ? a.title : '';
+            document.getElementById('announcement-body').value = a ? (a.body || '') : '';
+            document.getElementById('announcement-modal-title').innerText = a ? '改这条消息' : '发一条消息';
+            const del = document.getElementById('btn-delete-announcement');
+            del.classList.toggle('hidden', !a);
+            del.innerText = '删除这条'; del.dataset.armed = '';
+            const m = document.getElementById('announcement-modal');
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0');
+                document.getElementById('announcement-modal-box').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeAnnouncementModal() {
+            document.getElementById('announcement-modal').classList.add('opacity-0');
+            document.getElementById('announcement-modal-box').classList.add('scale-95');
+            setTimeout(() => { document.getElementById('announcement-modal').classList.add('hidden'); }, 300);
+        }
+
+        async function saveAnnouncement(btn) {
+            if (!isAdmin()) { alert('只有管理员能发消息。'); return; }
+            const id = document.getElementById('announcement-id').value;
+            const title = document.getElementById('announcement-title').value.trim();
+            const body = document.getElementById('announcement-body').value.trim();
+            if (!title) return alert('标题不能空——横幅上显示的就是它。');
+            btn.disabled = true;
+            const { error } = id
+                ? await _db.from('app_announcements').update({ title, body }).eq('id', Number(id))
+                : await _db.from('app_announcements').insert([{ title, body }]);
+            btn.disabled = false;
+            if (error) { showError('消息没发出去', error); return; }
+            closeAnnouncementModal(); refreshAnnouncements();
+        }
+
+        // ⚠️ 删除**不用 confirm()**：网页版「退出登录没反应」那次，
+        // 多半就是浏览器把 confirm() 拦了（反复弹窗后用户勾了"阻止"），点了毫无反应。
+        // 改成「点第一次变红字提醒，再点一次才删」。
+        async function deleteAnnouncement(btn) {
+            if (!isAdmin()) return;
+            if (btn.dataset.armed !== '1') {
+                btn.dataset.armed = '1';
+                btn.innerText = '再点一次，确认删除（手机上也会消失）';
+                return;
+            }
+            const id = Number(document.getElementById('announcement-id').value);
+            const { error } = await _db.from('app_announcements').delete().eq('id', id);
+            if (error) { showError('删除失败', error); return; }
+            closeAnnouncementModal(); refreshAnnouncements();
         }
 
         // 修补6：添加了防刷新掉线的系统嗅探功能
