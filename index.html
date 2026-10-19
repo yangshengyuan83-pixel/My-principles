@@ -1263,6 +1263,12 @@
 
             _myProfile = data || null;
             _myRealName = (data && data.real_name) ? data.real_name : '';
+
+            // 2026-10-19 修：胶囊上的名字原来只在 bootstrap 里写一次，而且写在 loadMyStatus **之前**——
+            // 那时 _myProfile 还是空的，于是显示成「你的个人中心」；改完名字也不会刷新。
+            // Yuan 用 Apple 测试号登录、点确认改名后发现的。现在每次读完档案都重写一次。
+            const nameEl = document.getElementById('island-name');
+            if (nameEl) nameEl.innerText = (data && (data.real_name || data.nickname)) || '你';
             await refreshPendingList();
 
             // 「+ 写一条说明」只给管理员看。
