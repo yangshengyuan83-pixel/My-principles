@@ -3168,7 +3168,8 @@
                     <div data-report-id="${d.id}" class="text-[16px] leading-[1.8] mb-2 text-black whitespace-pre-line">${escapeHtml(d.content)}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
-                        ${d.is_private ? '<span class="text-[10px] font-bold text-slate-400">仅自己可见</span>' : prayButtonHtml(d.id, d.likes_count)}
+                        ${d.is_private ? '' : prayButtonHtml(d.id, d.likes_count)}
+                        ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="changePrayerPrivacy('${d.id}', ${d.is_private ? 'true' : 'false'})" class="text-[10px] font-bold text-slate-400 hover:text-black transition-colors">${d.is_private ? '🔒 仅自己可见 ›' : '公开 ›'}</button>` : ''}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>
@@ -3208,6 +3209,17 @@
             document.getElementById('detail-discourse-input').value = "";
             document.getElementById('discourse-is-ai').checked = false;
             toggleInput('discourse'); refreshDetailSections(_curScripture.id);
+        }
+
+        // 2026-10-21：自己的祷告可以在「公开 / 仅自己可见」之间改（和 App 一样）
+        async function changePrayerPrivacy(id, nowPrivate) {
+            const msg = nowPrivate
+                ? '改成公开？\n弟兄姊妹都能看到，也能和你一同祷告。'
+                : '改成仅自己可见？\n别人就看不到这一段了。';
+            if (!confirm(msg)) return;
+            const { data, error } = await _db.from('creations').update({ is_private: !nowPrivate }).eq('id', id).select('id');
+            if (error || !data || !data.length) { alert('没改成：' + (error ? error.message : '只能改自己写的')); return; }
+            refreshDetailSections(_curScripture.id);
         }
 
         async function submitDetailPrayer(btn) {
