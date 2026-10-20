@@ -949,14 +949,18 @@
             </div>
 
             <!-- 祷告题目（2026-10-07 Yuan 要的）：所有人都能看到；别人可以点「一同祷告」，只计数、不显示是谁。
-                 存在 creations 表，creation_type = 'prayer'。App 只认 background / interpretation / practice 三种，不会显示这一类。 -->
+                 存在 creations 表，creation_type = 'prayer'。App 2026-10-20 起也显示（「祷告」那一块，在「生命实践」下面）。 -->
             <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 transition-colors overflow-hidden">
-                <h3 class="text-[11px] font-black text-slate-400 mb-4 uppercase tracking-widest">祷告题目</h3>
+                <!-- 2026-10-20：「祷告题目」改叫「祷告」（和 App 一致），上面加一句提醒（Yuan 选的），
+                     发的时候可以选「仅自己可见」（默认公开）。设计：06_产品决策记录/2026-10-20_祷告_应答_感恩_讨论稿.md -->
+                <h3 class="text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest">祷告</h3>
+                <p class="text-[13px] text-slate-500 leading-relaxed mb-4">不知道怎么开口也没关系。在这里写一段祷告，把心事轻轻放在神手里。</p>
                 <div id="detail-prayer-container"></div>
-                <div id="trigger-prayer" onclick="toggleInput('prayer')" class="w-full bg-white border-2 border-slate-100 border-dashed rounded-xl py-3 cursor-pointer text-[12px] font-bold text-slate-400 hover:border-slate-300 hover:text-black transition-all text-center mt-3">+ 发布祷告题目</div>
+                <div id="trigger-prayer" onclick="toggleInput('prayer')" class="w-full bg-white border-2 border-slate-100 border-dashed rounded-xl py-3 cursor-pointer text-[12px] font-bold text-slate-400 hover:border-slate-300 hover:text-black transition-all text-center mt-3">+ 写一段祷告</div>
                 <div id="form-prayer" class="hidden mt-3">
-                    <textarea id="detail-prayer-input" placeholder="写下你的祷告题目（所有人都能看到）..." class="w-full bg-white text-[15px] text-black p-4 rounded-xl outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
+                    <textarea id="detail-prayer-input" placeholder="写下你的祷告…" class="w-full bg-white text-[15px] text-black p-4 rounded-xl outline-none min-h-[80px] shadow-sm resize-none border border-slate-200 focus:border-slate-400 transition-colors"></textarea>
                     <div class="flex justify-end items-center gap-6 mt-3">
+                        <label class="mr-auto flex items-center gap-2 text-[12px] text-slate-500 cursor-pointer select-none"><input type="checkbox" id="detail-prayer-private" class="w-4 h-4"> 仅自己可见</label>
                         <button onclick="toggleInput('prayer')" class="text-[11px] font-black text-slate-400 hover:text-black transition-colors">取消</button>
                         <button onclick="submitDetailPrayer(this)" class="btn-black bg-black text-white px-8 py-2.5 text-[11px]">发布</button>
                     </div>
@@ -3164,7 +3168,7 @@
                     <div data-report-id="${d.id}" class="text-[16px] leading-[1.8] mb-2 text-black whitespace-pre-line">${escapeHtml(d.content)}</div>
                     <div class="flex items-center gap-4 border-t border-slate-50 pt-2 mt-2 transition-colors">
                         <span class="text-[10px] text-slate-400">— ${authorLabel(d)} ${formatSimpleDate(d.created_at)}</span>
-                        ${prayButtonHtml(d.id, d.likes_count)}
+                        ${d.is_private ? '<span class="text-[10px] font-bold text-slate-400">仅自己可见</span>' : prayButtonHtml(d.id, d.likes_count)}
                         ${d.author_id === window.CURRENT_USER_ID ? `<button onclick="deleteItem('${d.id}', 'creations')" class="text-[10px] font-black text-red-300 hover:text-red-500 transition-colors">删除</button>` : ''}
                     </div>
                 </div>
@@ -3211,10 +3215,13 @@
             const val = document.getElementById('detail-prayer-input').value.trim();
             if (!val) return;
             btn.disabled = true;
-            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'prayer', author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: false }]);
+            // 2026-10-20：默认公开，勾了「仅自己可见」就只有自己看得到（数据库那边也拦着别人看）
+            const priv = document.getElementById('detail-prayer-private').checked;
+            const { error } = await _db.from('creations').insert([{ scripture_id: _curScripture.id, content: val, creation_type: 'prayer', author_id: window.CURRENT_USER_ID, likes_count: 0, is_ai: false, is_private: priv }]);
             btn.disabled = false;
             if (error) { alert("系统拒收，原因: " + error.message); return; }
             document.getElementById('detail-prayer-input').value = "";
+            document.getElementById('detail-prayer-private').checked = false;
             toggleInput('prayer'); refreshDetailSections(_curScripture.id);
         }
 
