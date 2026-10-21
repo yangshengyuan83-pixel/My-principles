@@ -418,8 +418,8 @@
             <div id="pending-banner" class="hidden mb-10 bg-[#fbfaf8] border border-slate-200 rounded-[36px] px-10 py-8">
                 <div class="text-[16px] leading-[1.9] text-slate-700">
                     <span class="font-black text-black">你已经进来了。</span>
-                    看经文、听音频、搜索、点赞、收藏都可以正常用。<br>
-                    要<span class="font-black text-black">发布内容</span>，需要邀请你的人在教会见到你之后确认一下。
+                    看经文、听音频、搜索都可以正常用。<br>
+                    先<span class="font-black text-black">选好你的教会</span>（或填邀请码），就能看到弟兄姊妹的真实分享，也能自己分享了。
                 </div>
                 <div class="mt-6 flex items-center gap-5 flex-wrap">
                     <button onclick="openInviteModal()" class="text-[13px] font-black bg-black text-white px-7 py-3 rounded-full hover:bg-slate-800 transition-all">我有邀请码</button>
@@ -696,7 +696,7 @@
                 <button onclick="closeInviteModal()" class="text-slate-400 hover:text-black font-black text-xl">✕</button>
             </div>
             <div class="text-[13px] leading-[1.9] text-slate-500 mb-7 bg-[#fbfaf8] rounded-2xl px-6 py-5">
-                填了邀请码就能进来看和听。<span class="font-bold text-slate-700">要发布内容，需要邀请你的人在教会见到你之后确认一下。</span><br>
+                填了邀请码，就会进到邀请你的人所在的教会，马上可以分享。<span class="font-bold text-slate-700">邀请你的人认得你之后，牧者会来领养你、给你职分。</span><br>
                 所以请填你的真实称呼，方便他认出你。
             </div>
             <div class="space-y-4">
@@ -1225,6 +1225,9 @@
         // ⚠️ 界面上拦只是提示，真正的拦截在数据库的 RLS 规则里。
         // 藏按钮只是让人看不见，不是让人做不到。
         let _myStatus = null;
+        // 2026-10-21（18g）：说话看的是「进了教会没有」，自选职分看的是「本教会有没有牧者」
+        let _myChurchId = null;
+        let _churchHasPastor = true;
         let _myIsAdmin = false;
         let _myInviteCode = '';
         let _myRealName = '';
@@ -1246,6 +1249,8 @@
         async function loadMyStatus() {
             _myStatus = null;
             _myIsAdmin = false;
+            _myChurchId = null;
+            _churchHasPastor = true;
             if (!currentUserId()) return;
             const { data, error } = await _db.from('profiles')
                 // ⚠️ 2026-09-26 事故：这里原来 select 了 shepherd_name，
@@ -1269,6 +1274,13 @@
             _myStatus = data ? data.status : null;
             _myIsAdmin = data ? (data.is_admin === true) : false;
             _myInviteCode = data ? (data.my_invite_code || '') : '';
+            _myChurchId = data ? (data.church_id || null) : null;
+            if (_myChurchId) {
+                try {
+                    const { data: st } = await _db.rpc('my_church_status');
+                    _churchHasPastor = st ? st.has_pastor !== false : true;
+                } catch (e) { _churchHasPastor = true; }
+            }
 
             // 待确认的人才看到那条说明横幅
             const banner = document.getElementById('pending-banner');
@@ -1312,8 +1324,9 @@
             loadChurchTree();
         }
 
+        // 2026-10-21（18g）：进了教会就能说话，不再等确认（数据库触发器 stamp_church_on_insert 同样这么卡）
         function canWrite() {
-            return _myStatus === 'active';
+            return !!_myChurchId || _myIsAdmin;
         }
 
         // ================= 邀请与确认 =================
@@ -1362,7 +1375,7 @@
                 });
                 if (error) throw error;
                 closeInviteModal();
-                alert('记下了。等邀请你的人在教会见到你、点了通过，就可以发布内容了。\n\n在那之前，看、听、搜索、点赞、收藏都可以正常用。');
+                alert('记下了。你已经进到邀请你的人所在的教会，现在就可以分享了。\n\n邀请你的人点了「我认得他」之后，牧者会来领养你、给你职分。');
                 bootstrap();
             } catch (e) {
                 err.innerText = e.message || '提交失败，再试一次';
@@ -1638,21 +1651,9 @@
         function blockedByStatus() {
             if (!currentUserId()) { alert('登录之后才能这样做'); return true; }
             if (!canWrite()) {
-                // 2026-10-13：发不了内容现在有**三种**原因，不能再一律说「身份还在确认中」。
-                // 说错原因比不说更糟——人会按那句话去做，然后发现没用。
-                const P = _myProfile || {};
-                const 尾 = '\n\n看、听、搜索、点赞、收藏都可以正常用。'
-                         + '\n有问题可以在左边的「建议箱」里说一声。';
-                if (P.role === 'VIP') {
-                    alert('你现在的职分是 VIP，暂时不发布内容。'
-                        + '\n\n想发布的话，请你的牧者帮你改一下职分。' + 尾);
-                } else if (!P.role || P.role === 'none') {
-                    alert('你还没有选职分。' + (canSetOwnRole()
-                        ? '\n\n点左边自己名字前面的「选职分」就能选。'
-                        : '\n\n请你的牧者帮你定一个职分。') + 尾);
-                } else {
-                    alert('你的身份还在确认中，暂时还不能发布内容。' + 尾);
-                }
+                // 2026-10-21：发不了内容只剩一种原因——还没进教会（内容按教会分开）
+                alert('先选好你的教会，再分享。\n\n分享、祷告、感恩、配音都留在自己的教会里，给弟兄姊妹看。'
+                    + '\n有邀请码的话，填了邀请码就会进到邀请你的人所在的教会。');
                 return true;
             }
             return false;
@@ -1844,12 +1845,13 @@
             if (!P.church_id) return false;                 // 没教会，职分没有意义
             if (P.is_admin) return true;                    // 管理员随时
             if (PASTOR_ROLES.includes(P.role)) return true;  // 牧者随时（要能自己卸任）
-            return !P.role_self_set_at;                     // 其余：只能选一次
+            // 2026-10-21（18h）：还没有职分、且本教会还没有牧者时，才能自己选一次
+            return _churchHasPastor === false && (!P.role || P.role === 'none');
         }
 
         async function openMyRolePicker() {
             if (!canSetOwnRole()) {
-                alert('职分只能自己选一次。要改的话，请你的牧者帮你改。');
+                alert('你的教会已经有牧者了，职分由牧者来给。请等牧者领养你。');
                 return;
             }
             const now = (_myProfile && _myProfile.role && _myProfile.role !== 'none') ? _myProfile.role : '';
