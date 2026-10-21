@@ -3709,7 +3709,7 @@
 
             const 候选 = [].concat(
                 带段(在这组, '已经在「' + 组名 + '」里'),
-                带段(没进组, '还没进组的'),
+                带段(没进组, '还没进组的羊'),
                 带段(别的组, '从别的组里选')
             );
 
@@ -3787,7 +3787,7 @@
 
             let html = '';
             if (没进组.length) {
-                html += treeRow(0, 'ORPH', '还没进组的', 没进组.length, true, 'font-black text-amber-600');
+                html += treeRow(0, 'ORPH', '还没进组的羊', 没进组.length, true, 'font-black text-amber-600');
                 if (_treeOpen.has('ORPH')) 没进组.forEach(m => html += 人行(m, 1));
             }
             if (html) html += '<div class="h-2"></div>';
@@ -3958,7 +3958,7 @@
                 项目.push({ 文字: '改他的职分', 动作: "pickRoleForPerson('" + userId + "')" });
             }
             openActionSheet(memberName(m), 项目,
-                m.group_id ? '移出之后他会回到「还没进组的」，档案和发表过的内容不受影响。' : '');
+                m.group_id ? '移出之后他会回到「还没进组的羊」，档案和发表过的内容不受影响。' : '');
         }
 
         // 牧者改别人的职分。改完发言权跟着变——
