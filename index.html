@@ -1064,7 +1064,8 @@
 
         // 2. 生成随机 6 位专属邀请码
         function generateInviteCode() {
-            return Math.random().toString(36).substring(2, 8).toUpperCase();
+            // 2026-10-23：邀请码改成 6 位纯数字（Yuan 定）。正常情况下数据库建档时已经发好了，这里只是兜底
+            return String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
         }
 
         // ================= 第三方登录（Google / Apple）=================
@@ -1699,8 +1700,22 @@
 
         // ================= 初始化加载 =================
         async function bootstrap() {
-            const { data: sData } = await _db.from('scripture').select('*').order('created_at', { ascending: false });
+            // 2026-11-13：只列共用的每日经文（group_id 为空）。联合读经的经文网页版还没做，先不显示
+            const { data: sData } = await _db.from('scripture').select('*').is('group_id', null).order('created_at', { ascending: false });
             _scriptures = sData || [];
+            // 2026-11-01 Yuan：定时任务会提前做好后面几天，读者只能看到「明天」为止，后天起先藏着。
+            // 和 App 一样：这一篇属于哪天 = created_at 换算到 UTC+8 的年月日；和手机本地今天比，差超过 1 天的藏起来。
+            // 管理员想先看：网址后面加 ?preview=1
+            if (!new URLSearchParams(location.search).has('preview')) {
+                const _n = new Date();
+                const _today = Date.UTC(_n.getFullYear(), _n.getMonth(), _n.getDate());
+                _scriptures = _scriptures.filter(s => {
+                    if (!s.created_at) return true;
+                    const _t = new Date(new Date(s.created_at).getTime() + 8 * 3600 * 1000);
+                    const _d = Date.UTC(_t.getUTCFullYear(), _t.getUTCMonth(), _t.getUTCDate());
+                    return Math.round((_d - _today) / 86400000) <= 1;
+                });
+            }
 
             const { data: iData } = await _db.from('user_inquiries').select('*, scripture(title)').eq('user_id', currentUserId()).order('created_at', { ascending: false });
             _inquiries = iData || [];
@@ -1837,7 +1852,9 @@
         //
         // ⚠️ VIP 排**最上面**（Yuan 2026-10-13：「这是把 VIP 看得最重，是爱」）。
         //    新来的人打开单子，第一眼看到属于他的那一项，不用往下翻过一串职称。
-        const ROLE_CHOICES = ['VIP', '仆人', '职司', '牧女', '牧夫', '牧者', '师母', '牧师'];
+        const ROLE_CHOICES = ['VIP', '仆人', '职司', '牧女', '牧夫', '牧者', '师母', '牧师', 'none'];
+        // 'none' 显示成「没有职分」（2026-10-22 Yuan 要的选项）
+        function roleShown(r) { return r === 'none' ? '没有职分' : r; }
 
         // 职分还能不能自己改
         function canSetOwnRole() {
@@ -1856,14 +1873,14 @@
             }
             const now = (_myProfile && _myProfile.role && _myProfile.role !== 'none') ? _myProfile.role : '';
             const ans = prompt(
-                '你在教会的职分是？\n\n' + ROLE_CHOICES.map((r, i) => (i + 1) + '. ' + r).join('\n')
+                '你在教会的职分是？\n\n' + ROLE_CHOICES.map((r, i) => (i + 1) + '. ' + roleShown(r)).join('\n')
               + '\n\n输入编号或直接写职分名。'
               + '\n\n⚠️ 只能自己选一次，之后要改请你的牧者帮你改。'
               + '\n选「VIP」表示你是刚来的新朋友——可以读、可以听，暂时不发布内容。', now);
             if (ans === null) return;
             const v = String(ans).trim();
             if (!v) return;
-            const role = /^[1-8]$/.test(v) ? ROLE_CHOICES[parseInt(v, 10) - 1] : v;
+            const role = /^[1-9]$/.test(v) ? ROLE_CHOICES[parseInt(v, 10) - 1] : (v === '没有职分' ? 'none' : v);
 
             // 对大多数人这一步不可逆，值得多问一句。管理员和牧者可以随时再改，就不拦了。
             const P = _myProfile || {};
@@ -1871,7 +1888,7 @@
             if (!随时能改) {
                 const 话 = role === 'VIP'
                     ? '确定选「VIP」？\n\n选了之后不能自己改。VIP 可以读、可以听，暂时发布不了内容——要发布的话，请你的牧者帮你改职分。'
-                    : '确定选「' + role + '」？\n\n选了之后不能自己改，要改请你的牧者帮你改。';
+                    : '确定选「' + roleShown(role) + '」？\n\n选了之后不能自己改，要改请你的牧者帮你改。';
                 if (!confirm(话)) return;
             }
 
@@ -3399,7 +3416,7 @@
             return '<span onclick="event.stopPropagation(); openMyRolePicker()" '
                  + 'class="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-black">'
                  + escapeHtml(r) + '</span> ' + escapeHtml(memberName(m))
-                 + (m.is_admin ? '（管理员）' : '');
+                 + (m.is_admin ? '（建造师）' : '');
         }
 
         // 模糊搜名字（2026-10-18）。**和 App 的 fuzzyScore()（church_tree.dart）同一个算法**，改一处要改两处。
@@ -3421,7 +3438,7 @@
             const r = m && m.role;
             const shown = (!r || r === 'none') ? '' : r + ' ';
             // 2026-10-09 Yuan：管理员要有一个大家都看得到的标记
-            return shown + memberName(m) + (m && m.is_admin ? '（管理员）' : '');
+            return shown + memberName(m) + (m && m.is_admin ? '（建造师）' : '');
         }
 
         // 地址按澳洲的标准写法拼：「1 Regal Dr, Springvale VIC 3171, Australia」。
@@ -3564,7 +3581,8 @@
         //      现在一棵树只有组，统一走 set_person_group。）
         //    混成一个按钮会让人以为"把谁拖进哪里都行"，然后数据就乱了。
         function 能安排() {
-            return isPastorMe() || (_myProfile && _myProfile.is_admin);
+            // 2026-10-22（18j）：建造师在教会里没有特权，只看是不是本教会的牧者
+            return isPastorMe();
         }
 
         // ── 勾人面板（2026-10-11，照微信「发起群聊」做）────────
@@ -3969,10 +3987,10 @@
             if (!m) return;
             openActionSheet('改「' + memberName(m) + '」的职分',
                 ROLE_CHOICES.map(r => ({
-                    文字: r + (r === (m.role || '') ? '　（现在就是）' : ''),
+                    文字: roleShown(r) + (r === (m.role || 'none') ? '　（现在就是）' : ''),
                     动作: "setMemberRoleNow('" + userId + "', '" + r + "')"
                 })),
-                'VIP 不能发布内容，其余职分都能。改了之后立刻生效。');
+                '改了之后立刻生效。');
         }
 
         async function setMemberRoleNow(userId, role) {
@@ -4527,7 +4545,7 @@
                             ${r.type === 'problem' ? '问题' : '建议'}
                         </span>
                         <span class="text-[9px] font-black px-2 py-1 rounded ${st.cls}">${st.label}</span>
-                        ${!r.is_public ? '<span class="text-[9px] text-slate-300">' + (isMine ? '仅自己可见' : '只有提的人和管理员看得到') + '</span>' : ''}
+                        ${!r.is_public ? '<span class="text-[9px] text-slate-300">' + (isMine ? '仅自己可见' : '只有提的人和建造师看得到') + '</span>' : ''}
                         <span class="text-[10px] text-slate-300 ml-auto">${formatSimpleDate(r.created_at)}</span>
                     </div>
                     <div class="text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(r.content)}</div>
@@ -4572,7 +4590,7 @@
 
         function sgWho(c, task) {
             const r = (c.role && c.role !== 'none') ? c.role + ' ' : '';
-            return r + memberName({ real_name: c.name }) + (c.is_admin ? '（管理员）' : '')
+            return r + memberName({ real_name: c.name }) + (c.is_admin ? '（建造师）' : '')
                  + (String(c.user_id) === String(task.user_id) ? ' · 提建议的人' : '');
         }
 
@@ -4605,7 +4623,7 @@
               + (能改
                   ? '<select onchange="setSgStatus(this.value)" class="text-[11px] font-black border border-slate-200 rounded px-2 py-1 bg-white">'
                     + Object.keys(SG_STATUS).map(k => '<option value="' + k + '"' + (k === t.status ? ' selected' : '') + '>' + SG_STATUS[k].label + '</option>').join('')
-                    + '</select><span class="text-[10px] text-slate-400">做不做，大家讨论后由管理员或牧者定</span>'
+                    + '</select><span class="text-[10px] text-slate-400">做不做，大家讨论后由建造师或牧者定</span>'
                   : '<span class="text-[9px] font-black px-2 py-1 rounded ' + st.cls + '">' + st.label + '</span>')
               + '</div>'
               + '<div class="text-[15px] font-bold text-slate-800 leading-relaxed whitespace-pre-wrap">' + escapeHtml(t.content) + '</div>';
@@ -4863,7 +4881,7 @@
         }
 
         async function saveAnnouncement(btn) {
-            if (!isAdmin()) { alert('只有管理员能发消息。'); return; }
+            if (!isAdmin()) { alert('只有建造师能发消息。'); return; }
             const id = document.getElementById('announcement-id').value;
             const title = document.getElementById('announcement-title').value.trim();
             const body = document.getElementById('announcement-body').value.trim();
